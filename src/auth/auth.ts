@@ -1,3 +1,4 @@
+
 export type UserRole = 'admin' | 'employee';
 
 export interface User {
@@ -33,6 +34,7 @@ const mockUsers: User[] = [
 ];
 
 let currentUser: User | null = null;
+let nextUserId = 3; // To generate unique IDs for new users
 
 export const login = async (email: string, password: string): Promise<User | null> => {
   // In a real application, you would verify the password against a hashed version
@@ -55,4 +57,25 @@ export const getCurrentUser = (): User | null => {
 // Mock logout function (optional but good to include)
 export const logout = (): void => {
   currentUser = null;
+};
+
+// Type for the input to createUser, including password which is not stored in User
+export type CreateUserInput = Omit<User, 'id'> & { password?: string };
+
+export const createUser = (userData: CreateUserInput): User => {
+  const newUser: User = {
+    id: `user-${nextUserId++}`,
+    name: userData.name,
+    surname: userData.surname,
+    phone: userData.phone,
+    email: userData.email,
+    address: userData.address,
+    role: userData.role,
+  };
+  mockUsers.push(newUser);
+  // In a real app, you'd also handle the password (e.g., hashing and storing it)
+  // For this mock, we are ignoring the password field from userData.password
+  console.log('Mock createUser: New user added:', newUser);
+  console.log('Mock createUser: All users:', mockUsers);
+  return newUser;
 };

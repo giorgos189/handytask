@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { createUser, UserRole } from '@/auth/auth';
-import AuthGuard from '../../components/AuthGuard';
+import AuthGuard from '@/components/AuthGuard'; // Corrected import path
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
