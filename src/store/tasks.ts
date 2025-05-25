@@ -1,12 +1,14 @@
 
 import type { Task, TaskStatus } from '@/types';
 import { create } from 'zustand';
-import type { User } from '@/auth/auth'; // Import User to potentially use IDs later
+// No direct import of User from '@/auth/auth' needed here for task store logic
 
 interface TaskState {
   tasks: Task[];
+  setTasks: (tasks: Task[]) => void; // For reordering
   addTicket: (ticket: Omit<Task, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'assignedHandymen'> & { assignedHandymen?: string[] }) => Task;
   updateTask: (taskId: string, updates: Partial<Task>) => void;
+  updateTaskStatus: (taskId: string, newStatus: TaskStatus) => void; // Added for clarity
   getTaskById: (taskId: string) => Task | undefined;
   addTaskComment: (taskId: string, commentText: string) => void; 
 }
@@ -24,7 +26,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       status: 'To Do',
       createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
       updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      assignedHandymen: ['employee1@example.com'], // Updated to array
+      assignedHandymen: ['employee1@example.com'], 
     },
     {
       id: 'task-2',
@@ -35,7 +37,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       status: 'In Progress',
       createdAt: new Date(Date.now() - 86400000).toISOString(),
       updatedAt: new Date().toISOString(),
-      assignedHandymen: ['employee2@example.com', 'employee3@example.com'], // Updated to array
+      assignedHandymen: ['employee2@example.com', 'employee3@example.com'], 
     },
     {
       id: 'task-3',
@@ -46,9 +48,12 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       status: 'Completed',
       createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
       updatedAt: new Date(Date.now() - 86400000).toISOString(),
-      assignedHandymen: ['employee1@example.com'], // Updated to array
+      assignedHandymen: ['employee1@example.com'], 
     },
   ],
+  setTasks: (tasks) => {
+    set({ tasks });
+  },
   addTicket: (ticket) => {
     const newTask: Task = {
       ...ticket,
@@ -56,7 +61,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       status: 'To Do',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      assignedHandymen: ticket.assignedHandymen || [], // Ensure it's an array
+      assignedHandymen: ticket.assignedHandymen || [], 
     };
     set((state) => ({ tasks: [newTask, ...state.tasks] }));
     return newTask;
@@ -68,10 +73,23 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       )
     }));
   },
+  updateTaskStatus: (taskId, newStatus) => {
+    set((state) => ({
+      tasks: state.tasks.map((task) =>
+        task.id === taskId ? { ...task, status: newStatus, updatedAt: new Date().toISOString() } : task
+      ),
+    }));
+  },
   getTaskById: (taskId: string) => {
     return get().tasks.find(task => task.id === taskId);
   },
   addTaskComment: (taskId, commentText) => {
+    // This is a mock implementation. In a real app, you'd update the task object.
     console.log(`Comment for task ${taskId}: ${commentText}`);
+    // Example:
+    // get().updateTask(taskId, { 
+    //   comments: [...(get().getTaskById(taskId)?.comments || []), { text: commentText, date: new Date().toISOString(), author: 'System' }] 
+    // });
   }
 }));
+

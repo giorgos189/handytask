@@ -10,43 +10,48 @@ import { SortableTaskCard } from '@/components/SortableTaskCard';
 import { PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { getCurrentUser, type UserRole } from '@/auth/auth'; // Import getCurrentUser and UserRole
+import { getCurrentUser, type User as AuthUser } from '@/auth/auth'; // Import AuthUser
 
 const statusColumns: TaskStatus[] = ['To Do', 'In Progress', 'Completed'];
 
 export default function TaskDashboardPage() {
   const tasksFromStore = useTaskStore((state) => state.tasks);
   const updateTaskStatusInStore = useTaskStore((state) => state.updateTaskStatus);
+  const setTasksInStore = useTaskStore((state) => state.setTasks); // To update order in store
+  
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [currentUserRole, setCurrentUserRole] = useState<UserRole | undefined>(undefined);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
     setTasks(tasksFromStore);
     const user = getCurrentUser();
-    if (user) {
-      setCurrentUserRole(user.role);
-    }
+    setCurrentUser(user);
   }, [tasksFromStore]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (active.id !== over?.id) {
+    if (active.id !== over?.id && over) {
       const oldIndex = tasks.findIndex((task) => task.id === active.id);
-      const newIndex = tasks.findIndex((task) => task.id === over?.id);
+      const newIndex = tasks.findIndex((task) => task.id === over.id);
       
       if (oldIndex !== -1 && newIndex !== -1) {
-        const newTasksArray = arrayMove(tasks, oldIndex, newIndex);
-        setTasks(newTasksArray);
+        let newTasksArray = arrayMove(tasks, oldIndex, newIndex);
+        
+        const activeTask = newTasksArray.find(task => task.id === active.id);
+        const overColumnId = over.data?.current?.sortable?.containerId as TaskStatus | undefined;
 
-        // Update status based on column if over.data.current.columnId exists
-        const overColumnId = over?.data?.current?.sortable?.containerId as TaskStatus;
-        if (overColumnId && statusColumns.includes(overColumnId)) {
-           const activeTask = tasks.find(task => task.id === active.id);
-           if (activeTask && activeTask.status !== overColumnId) {
-             updateTaskStatusInStore(active.id as string, overColumnId);
-           }
+        if (activeTask && overColumnId && statusColumns.includes(overColumnId) && activeTask.status !== overColumnId) {
+          // Update the status of the dragged task
+          const updatedTask = { ...activeTask, status: overColumnId, updatedAt: new Date().toISOString() };
+          // Update the task in the local array
+          newTasksArray = newTasksArray.map(task => task.id === active.id ? updatedTask : task);
+          // Update the status in the global store
+          updateTaskStatusInStore(active.id as string, overColumnId);
         }
+        
+        setTasks(newTasksArray); // Update local state for immediate UI feedback
+        setTasksInStore(newTasksArray); // Update global store to persist order and status changes
       }
     }
   };
@@ -55,7 +60,7 @@ export default function TaskDashboardPage() {
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-foreground">Task Dashboard</h1>
-        {currentUserRole === 'admin' && ( // Conditionally render the button
+        {currentUser?.role === 'admin' && ( 
           <Button asChild>
             <Link href="/submit-ticket">
               <PlusCircle className="mr-2 h-5 w-5" />
@@ -73,13 +78,13 @@ export default function TaskDashboardPage() {
               <SortableContext 
                 items={tasks.filter(task => task.status === status).map(t => t.id)} 
                 strategy={verticalListSortingStrategy}
-                id={status}
+                id={status} // Important: This ID is used by onDragEnd to determine the target column
               >
                 <div className="space-y-4 min-h-[200px]">
                   {tasks
                     .filter((task) => task.status === status)
                     .map((task) => (
-                       <SortableTaskCard key={task.id} task={task} />
+                       <SortableTaskCard key={task.id} task={task} currentUser={currentUser} />
                     ))}
                   {tasks.filter((task) => task.status === status).length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">No tasks in this stage.</p>
