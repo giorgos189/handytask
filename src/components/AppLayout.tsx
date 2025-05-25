@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, PlusSquare, Wrench, Menu } from 'lucide-react';
+import { LayoutDashboard, PlusSquare, Wrench, Menu, Users } from 'lucide-react';
 import {
   SidebarProvider,
   Sidebar,
@@ -14,27 +14,52 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
-  SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { getCurrentUser, UserRole } from '@/auth/auth'; // Import UserRole
+import { useEffect, useState } from 'react';
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ElementType;
   tooltip: string;
+  allowedRoles?: UserRole[]; // Optional: specify which roles can see this item
 }
 
-const navItems: NavItem[] = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard, tooltip: 'Task Dashboard' },
-  { href: '/submit-ticket', label: 'Submit Ticket', icon: PlusSquare, tooltip: 'Submit New Ticket' },
+const allNavItems: NavItem[] = [
+  { href: '/', label: 'Dashboard', icon: LayoutDashboard, tooltip: 'Task Dashboard', allowedRoles: ['admin', 'employee'] },
+  { href: '/submit-ticket', label: 'Submit Ticket', icon: PlusSquare, tooltip: 'Submit New Ticket', allowedRoles: ['admin'] },
+  { href: '/admin/create-user', label: 'Create User', icon: Users, tooltip: 'Create New User', allowedRoles: ['admin'] },
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole | undefined>(undefined);
+  const [visibleNavItems, setVisibleNavItems] = useState<NavItem[]>([]);
+
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (user) {
+      setCurrentUserRole(user.role);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (currentUserRole) {
+      setVisibleNavItems(
+        allNavItems.filter(item => !item.allowedRoles || item.allowedRoles.includes(currentUserRole))
+      );
+    } else {
+      // Handle case where user might not be immediately available or not logged in (though AuthGuard should handle this)
+      // For now, filter by items that don't require specific roles or allow for a default view
+      setVisibleNavItems(allNavItems.filter(item => !item.allowedRoles || item.allowedRoles.includes('employee')));
+    }
+  }, [currentUserRole]);
+
 
   const sidebarContent = (
     <>
@@ -46,7 +71,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <SidebarMenuItem key={item.href}>
               <Link href={item.href} passHref legacyBehavior>
                 <SidebarMenuButton
