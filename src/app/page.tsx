@@ -4,13 +4,13 @@
 import { useEffect, useState } from 'react';
 import type { Task, TaskStatus } from '@/types';
 import { useTaskStore } from '@/store/tasks';
-import { TaskCard } from '@/components/TaskCard';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableTaskCard } from '@/components/SortableTaskCard';
 import { PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { getCurrentUser, type UserRole } from '@/auth/auth'; // Import getCurrentUser and UserRole
 
 const statusColumns: TaskStatus[] = ['To Do', 'In Progress', 'Completed'];
 
@@ -18,9 +18,14 @@ export default function TaskDashboardPage() {
   const tasksFromStore = useTaskStore((state) => state.tasks);
   const updateTaskStatusInStore = useTaskStore((state) => state.updateTaskStatus);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole | undefined>(undefined);
 
   useEffect(() => {
     setTasks(tasksFromStore);
+    const user = getCurrentUser();
+    if (user) {
+      setCurrentUserRole(user.role);
+    }
   }, [tasksFromStore]);
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -50,12 +55,14 @@ export default function TaskDashboardPage() {
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-foreground">Task Dashboard</h1>
-        <Button asChild>
-          <Link href="/submit-ticket">
-            <PlusCircle className="mr-2 h-5 w-5" />
-            Submit New Ticket
-          </Link>
-        </Button>
+        {currentUserRole === 'admin' && ( // Conditionally render the button
+          <Button asChild>
+            <Link href="/submit-ticket">
+              <PlusCircle className="mr-2 h-5 w-5" />
+              Submit New Ticket
+            </Link>
+          </Button>
+        )}
       </div>
 
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
