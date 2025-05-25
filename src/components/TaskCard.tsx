@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { TaskStatusBadge } from './TaskStatusBadge';
 import { User, MapPin, FileText, Mail, Edit3, ExternalLink } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { getCurrentUser, User as AuthUser } from '@/auth/auth';
 
 interface TaskCardProps {
@@ -15,12 +15,14 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task }: TaskCardProps) {
-  const timeAgo = formatDistanceToNow(new Date(task.updatedAt), { addSuffix: true });
+  const [timeAgo, setTimeAgo] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
+    // This effect runs only on the client, after hydration
+    setTimeAgo(formatDistanceToNow(new Date(task.updatedAt), { addSuffix: true }));
     setCurrentUser(getCurrentUser());
-  }, []);
+  }, [task.updatedAt]); // Re-run if task.updatedAt changes
 
   // Simplified edit check for now: any logged-in user can view details.
   // More specific role-based edit permissions would be in the TaskDetailPage itself or a dedicated service.
@@ -45,7 +47,7 @@ export function TaskCard({ task }: TaskCardProps) {
           <TaskStatusBadge status={task.status} />
         </div>
         <CardDescription className="text-xs text-muted-foreground">
-          Updated {timeAgo}
+          {timeAgo ? `Updated ${timeAgo}` : `Updated on ${format(new Date(task.updatedAt), 'PP')}`}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 pb-4 flex-grow">
