@@ -1,9 +1,11 @@
+
 // src/components/SubmitTicketForm.tsx
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import React, { useEffect, useState } from "react"; // Import useEffect and useState
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -20,13 +22,15 @@ import { useTaskStore } from "@/store/tasks";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getUsersByRole, type User } from "@/auth/auth"; // Import getUsersByRole and User
+import { HandymanMultiSelect } from "./HandymanMultiSelect"; // Import the new component
 
 const ticketFormSchema = z.object({
   clientName: z.string().min(2, "Client name must be at least 2 characters.").max(50),
   address: z.string().min(5, "Address must be at least 5 characters.").max(100),
   contactInfo: z.string().email("Invalid email address.").or(z.string().min(10, "Phone number must be at least 10 digits.")),
   problemDescription: z.string().min(10, "Problem description must be at least 10 characters.").max(500),
-  assignedHandyman: z.string().optional(),
+  assignedHandymen: z.array(z.string().email("Each handyman must be a valid email.")).optional(),
 });
 
 type TicketFormValues = z.infer<typeof ticketFormSchema>;
@@ -35,6 +39,16 @@ export function SubmitTicketForm() {
   const addTicket = useTaskStore((state) => state.addTicket);
   const router = useRouter();
   const { toast } = useToast();
+  const [availableHandymen, setAvailableHandymen] = useState<User[]>([]);
+
+  useEffect(() => {
+    // Fetch employees when the component mounts
+    const employees = getUsersByRole('employee');
+    const admins = getUsersByRole('admin'); // Optionally include admins if they can be assigned
+    // For this example, let's assume only employees can be handymen.
+    // You can combine employees and admins if needed: setAvailableHandymen([...employees, ...admins]);
+    setAvailableHandymen(employees); 
+  }, []);
 
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(ticketFormSchema),
@@ -43,12 +57,15 @@ export function SubmitTicketForm() {
       address: "",
       contactInfo: "",
       problemDescription: "",
-      assignedHandyman: "",
+      assignedHandymen: [],
     },
   });
 
   function onSubmit(data: TicketFormValues) {
-    addTicket(data);
+    addTicket({
+      ...data,
+      assignedHandymen: data.assignedHandymen || [], // Ensure it's an array
+    });
     toast({
       title: "Ticket Submitted!",
       description: `Ticket for ${data.clientName} has been successfully created.`,
@@ -126,13 +143,19 @@ export function SubmitTicketForm() {
             />
              <FormField
               control={form.control}
-              name="assignedHandyman"
+              name="assignedHandymen"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Assigned Handyman (Optional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Handy Andy" {...field} />
-                  </FormControl>
+                <FormItem className="flex flex-col">
+                  <FormLabel>Assigned Handymen (Optional)</FormLabel>
+                  <HandymanMultiSelect
+                    availableHandymen={availableHandymen}
+                    selectedHandymenEmails={field.value || []}
+                    onChange={field.onChange}
+                    placeholder="Select handymen to assign..."
+                  />
+                  <FormDescription>
+                    Select one or more handymen for this task.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

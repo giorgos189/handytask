@@ -12,11 +12,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TaskStatusBadge } from '@/components/TaskStatusBadge';
 import { AITroubleshooting } from '@/components/AITroubleshooting';
-import { ArrowLeft, CalendarDays, User, MapPin, Phone, UserCheck, ClipboardList, MessageSquare } from 'lucide-react';
+import { ArrowLeft, CalendarDays, User, MapPin, Phone, Users, ClipboardList, MessageSquare } from 'lucide-react'; // Changed UserCheck to Users
 import { format } from 'date-fns';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { getAllUsers, User as AuthUser } from '@/auth/auth'; // To fetch user details for display
 
 export default function TaskDetailPage() {
   const params = useParams();
@@ -27,13 +28,13 @@ export default function TaskDetailPage() {
   
   const getTaskById = useTaskStore((state) => state.getTaskById);
   const updateTaskStatusInStore = useTaskStore((state) => state.updateTaskStatus);
-  // const addTaskCommentToStore = useTaskStore((state) => state.addTaskComment); // Placeholder
 
   const [task, setTask] = useState<Task | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<TaskStatus | undefined>(undefined);
-  // const [newComment, setNewComment] = useState(''); // Placeholder
+  const [allUsers, setAllUsers] = useState<AuthUser[]>([]);
 
   useEffect(() => {
+    setAllUsers(getAllUsers()); // Fetch all users to map emails to names
     if (taskId) {
       const foundTask = getTaskById(taskId);
       if (foundTask) {
@@ -62,19 +63,32 @@ export default function TaskDetailPage() {
     }
   };
 
-  // const handleAddComment = () => { // Placeholder
-  //   if (task && newComment.trim()) {
-  //     addTaskCommentToStore(task.id, newComment.trim());
-  //     setNewComment('');
-  //     toast({ title: "Comment Added", description: "Your comment has been added."});
-  //   }
-  // };
+  const getHandymanDetails = (email: string): AuthUser | undefined => {
+    return allUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+  };
 
+  const displayAssignedHandymen = () => {
+    if (!task || !task.assignedHandymen || task.assignedHandymen.length === 0) {
+      return <p className="text-sm text-muted-foreground">Not assigned to any handyman.</p>;
+    }
+    return (
+      <ul className="list-disc pl-5 text-sm space-y-1">
+        {task.assignedHandymen.map(email => {
+          const handyman = getHandymanDetails(email);
+          return (
+            <li key={email}>
+              {handyman ? `${handyman.name} ${handyman.surname} (${email})` : email}
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
+  
   if (!task) {
     return (
       <div className="container mx-auto py-8 text-center">
         <p className="text-xl text-muted-foreground">Loading task details...</p>
-        {/* Could add a spinner here */}
       </div>
     );
   }
@@ -101,7 +115,6 @@ export default function TaskDetailPage() {
         
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-            {/* Client Details Section */}
             <Card className="p-0 bg-card/50">
               <CardHeader className="pb-3">
                 <CardTitle className="text-xl flex items-center"><User className="mr-2 h-5 w-5 text-primary" />Client Details</CardTitle>
@@ -113,15 +126,17 @@ export default function TaskDetailPage() {
               </CardContent>
             </Card>
 
-            {/* Assignment & Status Section */}
             <Card className="p-0 bg-card/50">
               <CardHeader className="pb-3">
-                 <CardTitle className="text-xl flex items-center"><UserCheck className="mr-2 h-5 w-5 text-primary" />Assignment & Status</CardTitle>
+                 <CardTitle className="text-xl flex items-center"><Users className="mr-2 h-5 w-5 text-primary" />Assignment & Status</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <p><strong className="font-medium text-foreground">Assigned To:</strong> {task.assignedHandyman ? task.assignedHandyman.split('@')[0] : 'Not assigned'}</p>
-                <div className="space-y-1">
-                  <Label htmlFor="task-status" className="font-medium text-foreground">Update Status:</Label>
+              <CardContent className="space-y-3">
+                <div>
+                  <Label className="font-medium text-foreground text-sm">Assigned To:</Label>
+                  {displayAssignedHandymen()}
+                </div>
+                <div className="space-y-1 pt-2">
+                  <Label htmlFor="task-status" className="font-medium text-foreground text-sm">Update Status:</Label>
                   <Select value={selectedStatus} onValueChange={(value) => handleStatusChange(value as TaskStatus)}>
                     <SelectTrigger id="task-status" className="w-full sm:w-[220px] bg-background">
                       <SelectValue placeholder="Select status" />
@@ -139,7 +154,6 @@ export default function TaskDetailPage() {
           
           <Separator />
 
-          {/* Problem Description Section */}
           <div>
             <h3 className="text-xl font-semibold mb-2 flex items-center"><CalendarDays className="mr-2 h-5 w-5 text-primary" />Problem Description</h3>
             <p className="text-muted-foreground whitespace-pre-line bg-secondary/20 p-4 rounded-md shadow-inner text-sm leading-relaxed">{task.problemDescription}</p>
@@ -147,28 +161,8 @@ export default function TaskDetailPage() {
 
           <Separator />
           
-          {/* AI Troubleshooting Section */}
           <AITroubleshooting task={task} />
-
-          {/* Placeholder for Communication / Comments Section */}
-          {/* 
-          <Separator />
-          <Card className="mt-6 bg-card/50">
-            <CardHeader>
-              <CardTitle className="text-xl flex items-center"><MessageSquare className="mr-2 h-5 w-5 text-primary" />Comments / Notes</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-sm text-muted-foreground p-4 border rounded-md bg-background">No comments yet.</div>
-              <Textarea
-                placeholder="Add a comment or note..."
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                className="min-h-[100px] bg-background"
-              />
-              <Button onClick={handleAddComment} disabled={!newComment.trim()}>Add Comment</Button>
-            </CardContent>
-          </Card>
-          */}
+          
         </CardContent>
       </Card>
     </div>

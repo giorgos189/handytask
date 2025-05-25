@@ -1,3 +1,4 @@
+
 export type TaskStatus = 'To Do' | 'In Progress' | 'Completed';
 
 export interface Task {
@@ -7,7 +8,7 @@ export interface Task {
   problemDescription: string;
   contactInfo: string;
   status: TaskStatus;
-  assignedHandyman?: string;
+  assignedHandymen?: string[]; // Changed from assignedHandyman: string
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
 }

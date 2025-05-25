@@ -31,10 +31,28 @@ const mockUsers: User[] = [
     address: '456 Employee Ave',
     role: 'employee',
   },
+  {
+    id: 'user-3', // Was nextUserId = 3, ensuring consistency if createUser was called
+    name: 'Handy',
+    surname: 'Andy',
+    phone: '555-000-1111',
+    email: 'employee2@example.com'.toLowerCase(),
+    address: '789 Worker Rd',
+    role: 'employee',
+  },
+  {
+    id: 'user-4',
+    name: 'Test',
+    surname: 'Employee',
+    phone: '555-000-2222',
+    email: 'employee3@example.com'.toLowerCase(),
+    address: '101 Job St',
+    role: 'employee',
+  }
 ];
 
 let currentUser: User | null = null;
-let nextUserId = 3;
+let nextUserId = 5; // Adjusted nextUserId due to added mock user
 
 export const login = async (email: string, password: string): Promise<User | null> => {
   const normalizedEmail = email.toLowerCase();
@@ -70,30 +88,24 @@ export const createUser = (userData: CreateUserInput): User => {
     role: userData.role,
   };
   mockUsers.push(newUser);
-  // console.log('Mock createUser: New user added:', newUser);
-  // console.log('Mock createUser: All users:', mockUsers);
   return newUser;
 };
 
-// New function to update user profile
 export const updateUserProfile = (
   userId: string,
   updates: Partial<Omit<User, 'id' | 'role' | 'email'>>
 ): boolean => {
   const userIndex = mockUsers.findIndex(u => u.id === userId);
   if (userIndex > -1) {
-    mockUsers[userIndex] = { ...mockUsers[userIndex], ...updates };
-    // If the updated user is the current user, update currentUser as well
+    mockUsers[userIndex] = { ...mockUsers[userIndex], ...updates, email: mockUsers[userIndex].email }; // Ensure email is not changed
     if (currentUser && currentUser.id === userId) {
       currentUser = { ...currentUser, ...updates };
     }
-    // console.log('Mock updateUserProfile: User updated:', mockUsers[userIndex]);
     return true;
   }
   return false;
 };
 
-// New mock function to change password
 export const changePassword = async (
   userId: string,
   currentPassword: string,
@@ -101,24 +113,16 @@ export const changePassword = async (
 ): Promise<boolean> => {
   const user = mockUsers.find(u => u.id === userId);
   if (!user) {
-    return false; // User not found
+    return false; 
   }
-  // Mock password change:
-  // In a real app, you would:
-  // 1. Fetch the user's stored hashed password.
-  // 2. Compare `currentPassword` with the stored hash.
-  // 3. If it matches, hash `newPassword` and store it.
-  // For this mock, we'll just log it and assume success if the user exists.
-  // We don't actually store or use passwords in this mock.
-  // console.log(`Mock changePassword: Attempt to change password for user ${userId}. Current: "${currentPassword}", New: "${newPassword}"`);
-  
-  // Simulate a check (e.g. currentPassword would be validated against a stored one)
-  // For mock, we'll just say it's successful.
-  // if (currentPassword !== "mockpassword") { // Example of a mock check
-  //   console.log("Mock changePassword: Current password incorrect (mock check).");
-  //   return false;
-  // }
+  // Mock password change logic (no actual hashing or storage)
+  return true; 
+};
 
-  // console.log(`Mock changePassword: Password for user ${userId} would be updated.`);
-  return true; // Assume success for mock
+export const getAllUsers = (): User[] => {
+  return [...mockUsers]; // Return a copy
+};
+
+export const getUsersByRole = (role: UserRole): User[] => {
+  return mockUsers.filter(user => user.role === role);
 };
