@@ -1,10 +1,10 @@
+// src/app/layout.tsx
+// No 'use client' here, this is a Server Component
+
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-import { Toaster } from '@/components/ui/toaster';
-import { Providers } from '@/components/Providers';
-import { AppLayout } from '@/components/AppLayout';
-import AuthGuard from '@/components/AuthGuard'; // Changed from named to default import
+import LayoutRenderer from '@/components/LayoutRenderer'; // New client component
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-export const metadata: Metadata = {
+export const metadata: Metadata = { // This is now valid
   title: 'HandyTask',
   description: 'Simplified task management for handyman jobs.',
 };
@@ -29,14 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <Providers>
-          <AuthGuard>
-            <AppLayout>
-              {children}
-            </AppLayout>
-          </AuthGuard>
-          <Toaster />
-        </Providers>
+        <LayoutRenderer>{children}</LayoutRenderer>
       </body>
     </html>
   );
