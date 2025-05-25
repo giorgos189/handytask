@@ -6,7 +6,7 @@ export interface User {
   name: string;
   surname: string;
   phone: string;
-  email: string;
+  email: string; // Will be stored in lowercase
   address: string;
   role: UserRole;
 }
@@ -18,7 +18,7 @@ const mockUsers: User[] = [
     name: 'Admin',
     surname: 'User',
     phone: '123-456-7890',
-    email: 'admin@example.com',
+    email: 'admin@example.com'.toLowerCase(), // Stored as lowercase
     address: '123 Admin St',
     role: 'admin',
   },
@@ -27,7 +27,7 @@ const mockUsers: User[] = [
     name: 'Employee',
     surname: 'One',
     phone: '098-765-4321',
-    email: 'employee1@example.com',
+    email: 'employee1@example.com'.toLowerCase(), // Stored as lowercase
     address: '456 Employee Ave',
     role: 'employee',
   },
@@ -37,9 +37,10 @@ let currentUser: User | null = null;
 let nextUserId = 3; // To generate unique IDs for new users
 
 export const login = async (email: string, password: string): Promise<User | null> => {
+  const normalizedEmail = email.toLowerCase(); // Normalize input email
   // In a real application, you would verify the password against a hashed version
   // For this mock, we'll just check the email
-  const user = mockUsers.find(u => u.email === email);
+  const user = mockUsers.find(u => u.email === normalizedEmail);
 
   if (user) {
     // In a real application, this would be a secure token or session
@@ -60,7 +61,7 @@ export const logout = (): void => {
 };
 
 // Type for the input to createUser, including password which is not stored in User
-export type CreateUserInput = Omit<User, 'id'> & { password?: string };
+export type CreateUserInput = Omit<User, 'id' | 'email'> & { email: string; password?: string };
 
 export const createUser = (userData: CreateUserInput): User => {
   const newUser: User = {
@@ -68,14 +69,15 @@ export const createUser = (userData: CreateUserInput): User => {
     name: userData.name,
     surname: userData.surname,
     phone: userData.phone,
-    email: userData.email,
+    email: userData.email.toLowerCase(), // Store email as lowercase
     address: userData.address,
     role: userData.role,
   };
   mockUsers.push(newUser);
   // In a real app, you'd also handle the password (e.g., hashing and storing it)
   // For this mock, we are ignoring the password field from userData.password
-  console.log('Mock createUser: New user added:', newUser);
-  console.log('Mock createUser: All users:', mockUsers);
+  // console.log('Mock createUser: New user added:', newUser);
+  // console.log('Mock createUser: All users:', mockUsers);
   return newUser;
 };
+
