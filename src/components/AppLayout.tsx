@@ -1,10 +1,11 @@
+
 // src/components/AppLayout.tsx
 "use client";
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation'; // Added useRouter
-import { LayoutDashboard, PlusSquare, Wrench, Menu, Users, LogOut } from 'lucide-react'; // Added LogOut
+import { usePathname, useRouter } from 'next/navigation';
+import { LayoutDashboard, PlusSquare, Wrench, Menu, Users, LogOut, UserCircle } from 'lucide-react'; // Added UserCircle
 import {
   SidebarProvider,
   Sidebar,
@@ -14,12 +15,12 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
-  SidebarFooter, // Added SidebarFooter
+  SidebarFooter,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { getCurrentUser, UserRole, logout } from '@/auth/auth'; // Import UserRole and logout
+import { getCurrentUser, UserRole, logout } from '@/auth/auth';
 import { useEffect, useState } from 'react';
 
 interface NavItem {
@@ -27,18 +28,19 @@ interface NavItem {
   label: string;
   icon: React.ElementType;
   tooltip: string;
-  allowedRoles?: UserRole[]; // Optional: specify which roles can see this item
+  allowedRoles?: UserRole[];
 }
 
 const allNavItems: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard, tooltip: 'Task Dashboard', allowedRoles: ['admin', 'employee'] },
+  { href: '/profile', label: 'Profile', icon: UserCircle, tooltip: 'Edit Profile', allowedRoles: ['admin', 'employee'] },
   { href: '/submit-ticket', label: 'Submit Ticket', icon: PlusSquare, tooltip: 'Submit New Ticket', allowedRoles: ['admin'] },
   { href: '/admin/create-user', label: 'Create User', icon: Users, tooltip: 'Create New User', allowedRoles: ['admin'] },
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter(); // Initialize router
+  const router = useRouter();
   const isMobile = useIsMobile();
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | undefined>(undefined);
   const [visibleNavItems, setVisibleNavItems] = useState<NavItem[]>([]);
@@ -48,10 +50,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
     if (user) {
       setCurrentUserRole(user.role);
     } else {
-      // If no user, likely AuthGuard will redirect, but clear role if somehow here
       setCurrentUserRole(undefined);
     }
-  }, [pathname]); // Re-run if pathname changes, e.g., after login/logout
+  }, [pathname]);
 
   useEffect(() => {
     if (currentUserRole) {
@@ -59,14 +60,18 @@ export function AppLayout({ children }: { children: ReactNode }) {
         allNavItems.filter(item => !item.allowedRoles || item.allowedRoles.includes(currentUserRole))
       );
     } else {
-      // Default for non-logged-in or role-less (should be caught by AuthGuard)
-      setVisibleNavItems(allNavItems.filter(item => !item.allowedRoles || item.allowedRoles.includes('employee')));
+      // Fallback for non-logged-in (should be handled by AuthGuard, but as a safeguard)
+      // Or if role is somehow undefined for a logged-in user
+      const defaultAllowedItems = allNavItems.filter(item =>
+        item.allowedRoles?.includes('employee') || !item.allowedRoles
+      );
+      setVisibleNavItems(defaultAllowedItems);
     }
   }, [currentUserRole]);
 
   const handleLogout = () => {
     logout();
-    setCurrentUserRole(undefined); // Clear role locally
+    setCurrentUserRole(undefined);
     router.push('/login');
   };
 
@@ -96,7 +101,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      {currentUserRole && (
+      {/* Logout button always at the bottom if a user is logged in */}
+      {getCurrentUser() && ( // Check if any user is logged in to show logout
         <SidebarFooter className="p-2 mt-auto">
           <SidebarMenu>
             <SidebarMenuItem>
