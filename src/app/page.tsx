@@ -11,6 +11,7 @@ import { PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { getCurrentUser, type User as AuthUser } from '@/auth/auth'; // Import AuthUser
+import { usePathname } from 'next/navigation'; // Added import
 
 const statusColumns: TaskStatus[] = ['To Do', 'In Progress', 'Completed'];
 
@@ -21,12 +22,13 @@ export default function TaskDashboardPage() {
   
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const pathname = usePathname(); // Added pathname
 
   useEffect(() => {
     setTasks(tasksFromStore);
     const user = getCurrentUser();
     setCurrentUser(user);
-  }, [tasksFromStore]);
+  }, [tasksFromStore, pathname]); // Added pathname to dependency array
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
