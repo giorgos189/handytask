@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { mockLogin } from '@/auth/auth'; // Assuming mockLogin is exported from auth.ts
+import { login } from '@/auth/auth'; // Changed mockLogin to login
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -15,7 +15,7 @@ const LoginPage: React.FC = () => {
     setError(null); // Clear previous errors
 
     try {
-      const user = await mockLogin(email, password);
+      const user = await login(email, password); // Changed mockLogin to login
       if (user) {
         // Assuming successful login sets the user in your mock auth system
         router.push('/'); // Redirect to home page on successful login
