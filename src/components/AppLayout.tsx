@@ -3,8 +3,8 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { LayoutDashboard, PlusSquare, Wrench, Menu, Users } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation'; // Added useRouter
+import { LayoutDashboard, PlusSquare, Wrench, Menu, Users, LogOut } from 'lucide-react'; // Added LogOut
 import {
   SidebarProvider,
   Sidebar,
@@ -14,11 +14,12 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
+  SidebarFooter, // Added SidebarFooter
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { getCurrentUser, UserRole } from '@/auth/auth'; // Import UserRole
+import { getCurrentUser, UserRole, logout } from '@/auth/auth'; // Import UserRole and logout
 import { useEffect, useState } from 'react';
 
 interface NavItem {
@@ -37,6 +38,7 @@ const allNavItems: NavItem[] = [
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter(); // Initialize router
   const isMobile = useIsMobile();
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | undefined>(undefined);
   const [visibleNavItems, setVisibleNavItems] = useState<NavItem[]>([]);
@@ -45,8 +47,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
     const user = getCurrentUser();
     if (user) {
       setCurrentUserRole(user.role);
+    } else {
+      // If no user, likely AuthGuard will redirect, but clear role if somehow here
+      setCurrentUserRole(undefined);
     }
-  }, []);
+  }, [pathname]); // Re-run if pathname changes, e.g., after login/logout
 
   useEffect(() => {
     if (currentUserRole) {
@@ -54,12 +59,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
         allNavItems.filter(item => !item.allowedRoles || item.allowedRoles.includes(currentUserRole))
       );
     } else {
-      // Handle case where user might not be immediately available or not logged in (though AuthGuard should handle this)
-      // For now, filter by items that don't require specific roles or allow for a default view
+      // Default for non-logged-in or role-less (should be caught by AuthGuard)
       setVisibleNavItems(allNavItems.filter(item => !item.allowedRoles || item.allowedRoles.includes('employee')));
     }
   }, [currentUserRole]);
 
+  const handleLogout = () => {
+    logout();
+    setCurrentUserRole(undefined); // Clear role locally
+    router.push('/login');
+  };
 
   const sidebarContent = (
     <>
@@ -87,6 +96,22 @@ export function AppLayout({ children }: { children: ReactNode }) {
           ))}
         </SidebarMenu>
       </SidebarContent>
+      {currentUserRole && (
+        <SidebarFooter className="p-2 mt-auto">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={handleLogout}
+                tooltip="Log Out"
+                className="justify-start w-full"
+              >
+                <LogOut className="h-5 w-5" />
+                <span>Log Out</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      )}
     </>
   );
 

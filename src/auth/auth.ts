@@ -55,7 +55,6 @@ export const getCurrentUser = (): User | null => {
   return currentUser;
 };
 
-// Mock logout function (optional but good to include)
 export const logout = (): void => {
   currentUser = null;
 };
