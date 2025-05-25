@@ -4,7 +4,7 @@ import { create } from 'zustand';
 interface TaskState {
   tasks: Task[];
   addTicket: (ticket: Omit<Task, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'assignedHandyman'> & { assignedHandyman?: string }) => Task;
-  updateTaskStatus: (taskId: string, status: TaskStatus) => void;
+  updateTask: (taskId: string, updates: Partial<Task>) => void;
   getTaskById: (taskId: string) => Task | undefined;
   addTaskComment: (taskId: string, commentText: string) => void; // Placeholder for future comment functionality
 }
@@ -22,7 +22,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       status: 'To Do',
       createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
       updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      assignedHandyman: 'Cheshire Cat',
+      assignedHandyman: 'employee1@example.com',
     },
     {
       id: 'task-2',
@@ -33,7 +33,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       status: 'In Progress',
       createdAt: new Date(Date.now() - 86400000).toISOString(),
       updatedAt: new Date().toISOString(),
-      assignedHandyman: 'Bob The Builder',
+      assignedHandyman: 'employee2@example.com',
     },
     {
       id: 'task-3',
@@ -44,7 +44,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       status: 'Completed',
       createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
       updatedAt: new Date(Date.now() - 86400000).toISOString(),
-      assignedHandyman: 'Ace of Spades',
+      assignedHandyman: 'employee1@example.com',
     },
   ],
   addTicket: (ticket) => {
@@ -58,11 +58,11 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     set((state) => ({ tasks: [newTask, ...state.tasks] }));
     return newTask;
   },
-  updateTaskStatus: (taskId, status) => {
+  updateTask: (taskId, updates) => {
     set((state) => ({
       tasks: state.tasks.map((task) =>
-        task.id === taskId ? { ...task, status, updatedAt: new Date().toISOString() } : task
-      ),
+        task.id === taskId ? { ...task, ...updates, updatedAt: new Date().toISOString() } : task
+      )
     }));
   },
   getTaskById: (taskId: string) => {

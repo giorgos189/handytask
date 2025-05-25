@@ -29,7 +29,7 @@ export function SortableTaskCard({ task }: SortableTaskCardProps) {
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="relative">
+    <div ref={setNodeRef} style={style} className="relative" {...attributes} {...listeners}>
       <TaskCard task={task} />
       <button 
         {...attributes} 
