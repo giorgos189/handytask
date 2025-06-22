@@ -22,14 +22,14 @@ import { useTaskStore } from "@/store/tasks";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getUsersByRole, type User } from "@/auth/auth";
+import { getAllUsers, type User } from "@/auth/auth";
 import { HandymanMultiSelect } from "./HandymanMultiSelect";
 
 const ticketFormSchema = z.object({
   clientName: z.string().min(2, "Client name must be at least 2 characters.").max(50),
   address: z.string().min(5, "Address must be at least 5 characters.").max(100),
   contactInfo: z.string().min(7, "Phone number must be at least 7 digits.").regex(/^[0-9]+$/, "Contact information must only contain numbers."),
-  problemDescription: z.string().min(10, "Problem description must be at least 10 characters.").max(500),
+  problemDescription: z.string().max(500, "Problem description cannot exceed 500 characters."),
   assignedHandymen: z.array(z.string().email("Each handyman must be a valid email.")).optional(),
 });
 
@@ -42,16 +42,16 @@ export function SubmitTicketForm() {
   const [availableHandymen, setAvailableHandymen] = useState<User[]>([]);
 
   useEffect(() => {
-    // Fetch employees when the component mounts
+    // Fetch all users when the component mounts
     const fetchHandymen = async () => {
         try {
-            const employees = await getUsersByRole('employee');
-            setAvailableHandymen(employees);
+            const users = await getAllUsers();
+            setAvailableHandymen(users);
         } catch (error) {
             console.error("Failed to fetch handymen:", error);
             toast({
                 title: "Error",
-                description: "Could not load the list of handymen.",
+                description: "Could not load the list of users.",
                 variant: "destructive",
             });
         }
