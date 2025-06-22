@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { createUser, UserRole } from '@/auth/auth';
-import AuthGuard from '@/components/AuthGuard'; // Corrected import path
+import AuthGuard from '@/components/AuthGuard';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,7 +41,8 @@ const CreateUserPage: React.FC = () => {
         email,
         address,
         role,
-        password: 'mockpassword' // In a real app, handle password securely
+        // The password field is not used by the mock `createUser` function.
+        // In a real app, you would handle password creation securely.
       };
       // In a real app, this would be an async call to your backend
       // For now, we'll assume createUser is synchronous as per the mock

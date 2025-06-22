@@ -32,7 +32,7 @@ const mockUsers: User[] = [
     role: 'employee',
   },
   {
-    id: 'user-3', // Was nextUserId = 3, ensuring consistency if createUser was called
+    id: 'user-3',
     name: 'Handy',
     surname: 'Andy',
     phone: '555-000-1111',
@@ -51,31 +51,47 @@ const mockUsers: User[] = [
   }
 ];
 
-let currentUser: User | null = null;
-let nextUserId = 5; // Adjusted nextUserId due to added mock user
+let nextUserId = 5;
+const AUTH_KEY = 'handytask-user';
 
 export const login = async (email: string, password: string): Promise<User | null> => {
   const normalizedEmail = email.toLowerCase();
   const user = mockUsers.find(u => u.email === normalizedEmail);
 
   if (user) {
-    // Mock password check: In a real app, compare hashed password
-    // For this mock, any password attempt is successful if email matches
-    currentUser = user;
+    // Mock password check - any password works
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+    }
     return user;
   }
   return null;
 };
 
 export const getCurrentUser = (): User | null => {
-  return currentUser;
+  if (typeof window === 'undefined') {
+    return null; // No localStorage on the server
+  }
+  const userJson = localStorage.getItem(AUTH_KEY);
+  if (!userJson) {
+    return null;
+  }
+  try {
+    return JSON.parse(userJson);
+  } catch (e) {
+    console.error("Failed to parse user from localStorage", e);
+    localStorage.removeItem(AUTH_KEY);
+    return null;
+  }
 };
 
 export const logout = (): void => {
-  currentUser = null;
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(AUTH_KEY);
+  }
 };
 
-export type CreateUserInput = Omit<User, 'id' | 'email'> & { email: string; password?: string };
+export type CreateUserInput = Omit<User, 'id'>;
 
 export const createUser = (userData: CreateUserInput): User => {
   const newUser: User = {
@@ -98,8 +114,13 @@ export const updateUserProfile = (
   const userIndex = mockUsers.findIndex(u => u.id === userId);
   if (userIndex > -1) {
     mockUsers[userIndex] = { ...mockUsers[userIndex], ...updates, email: mockUsers[userIndex].email }; // Ensure email is not changed
-    if (currentUser && currentUser.id === userId) {
-      currentUser = { ...currentUser, ...updates };
+
+    const loggedInUser = getCurrentUser();
+    if (loggedInUser && loggedInUser.id === userId) {
+      const updatedUserInStorage = { ...loggedInUser, ...updates };
+       if (typeof window !== 'undefined') {
+        localStorage.setItem(AUTH_KEY, JSON.stringify(updatedUserInStorage));
+      }
     }
     return true;
   }

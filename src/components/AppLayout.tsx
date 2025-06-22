@@ -20,7 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { getCurrentUser, UserRole, logout } from '@/auth/auth';
+import { getCurrentUser, type User, logout } from '@/auth/auth';
 import { useEffect, useState } from 'react';
 
 interface NavItem {
@@ -28,7 +28,7 @@ interface NavItem {
   label: string;
   icon: React.ElementType;
   tooltip: string;
-  allowedRoles?: UserRole[];
+  allowedRoles?: User['role'][];
 }
 
 const allNavItems: NavItem[] = [
@@ -42,36 +42,22 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const isMobile = useIsMobile();
-  const [currentUserRole, setCurrentUserRole] = useState<UserRole | undefined>(undefined);
-  const [visibleNavItems, setVisibleNavItems] = useState<NavItem[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
-    const user = getCurrentUser();
-    if (user) {
-      setCurrentUserRole(user.role);
-    } else {
-      setCurrentUserRole(undefined);
-    }
+    // On component mount or path change, get the user from localStorage
+    setCurrentUser(getCurrentUser());
   }, [pathname]);
 
-  useEffect(() => {
-    if (currentUserRole) {
-      setVisibleNavItems(
-        allNavItems.filter(item => !item.allowedRoles || item.allowedRoles.includes(currentUserRole))
-      );
-    } else {
-      // Fallback for non-logged-in (should be handled by AuthGuard, but as a safeguard)
-      // Or if role is somehow undefined for a logged-in user
-      const defaultAllowedItems = allNavItems.filter(item =>
-        item.allowedRoles?.includes('employee') || !item.allowedRoles
-      );
-      setVisibleNavItems(defaultAllowedItems);
-    }
-  }, [currentUserRole]);
+  const visibleNavItems = allNavItems.filter(item => {
+    if (!item.allowedRoles) return true; // public items
+    if (!currentUser) return false; // logged out users can't see role-based items
+    return item.allowedRoles.includes(currentUser.role);
+  });
 
   const handleLogout = () => {
     logout();
-    setCurrentUserRole(undefined);
+    setCurrentUser(null); // Update local state immediately
     router.push('/login');
   };
 
@@ -101,8 +87,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      {/* Logout button always at the bottom if a user is logged in */}
-      {getCurrentUser() && ( // Check if any user is logged in to show logout
+      {currentUser && ( // Check if any user is logged in to show logout
         <SidebarFooter className="p-2 mt-auto">
           <SidebarMenu>
             <SidebarMenuItem>
