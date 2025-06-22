@@ -28,7 +28,7 @@ import { HandymanMultiSelect } from "./HandymanMultiSelect";
 const ticketFormSchema = z.object({
   clientName: z.string().min(2, "Client name must be at least 2 characters.").max(50),
   address: z.string().min(5, "Address must be at least 5 characters.").max(100),
-  contactInfo: z.string().email("Invalid email address.").or(z.string().min(10, "Phone number must be at least 10 digits.")),
+  contactInfo: z.string().min(7, "Phone number must be at least 7 digits.").regex(/^[0-9]+$/, "Contact information must only contain numbers."),
   problemDescription: z.string().min(10, "Problem description must be at least 10 characters.").max(500),
   assignedHandymen: z.array(z.string().email("Each handyman must be a valid email.")).optional(),
 });
@@ -44,11 +44,20 @@ export function SubmitTicketForm() {
   useEffect(() => {
     // Fetch employees when the component mounts
     const fetchHandymen = async () => {
-        const employees = await getUsersByRole('employee');
-        setAvailableHandymen(employees);
+        try {
+            const employees = await getUsersByRole('employee');
+            setAvailableHandymen(employees);
+        } catch (error) {
+            console.error("Failed to fetch handymen:", error);
+            toast({
+                title: "Error",
+                description: "Could not load the list of handymen.",
+                variant: "destructive",
+            });
+        }
     };
     fetchHandymen();
-  }, []);
+  }, [toast]);
 
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(ticketFormSchema),
@@ -122,12 +131,12 @@ export function SubmitTicketForm() {
               name="contactInfo"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Contact Information</FormLabel>
+                  <FormLabel>Contact Phone Number</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., john.doe@example.com or 555-1234" {...field} />
+                    <Input placeholder="e.g., 5551234567" {...field} />
                   </FormControl>
                   <FormDescription>
-                    Please provide an email address or phone number.
+                    Please provide a contact phone number (numbers only).
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
