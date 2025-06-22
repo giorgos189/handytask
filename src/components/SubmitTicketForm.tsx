@@ -5,7 +5,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import React, { useEffect, useState } from "react"; // Import useEffect and useState
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -22,8 +22,8 @@ import { useTaskStore } from "@/store/tasks";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getUsersByRole, type User } from "@/auth/auth"; // Import getUsersByRole and User
-import { HandymanMultiSelect } from "./HandymanMultiSelect"; // Import the new component
+import { getUsersByRole, type User } from "@/auth/auth";
+import { HandymanMultiSelect } from "./HandymanMultiSelect";
 
 const ticketFormSchema = z.object({
   clientName: z.string().min(2, "Client name must be at least 2 characters.").max(50),
@@ -43,11 +43,11 @@ export function SubmitTicketForm() {
 
   useEffect(() => {
     // Fetch employees when the component mounts
-    const employees = getUsersByRole('employee');
-    const admins = getUsersByRole('admin'); // Optionally include admins if they can be assigned
-    // For this example, let's assume only employees can be handymen.
-    // You can combine employees and admins if needed: setAvailableHandymen([...employees, ...admins]);
-    setAvailableHandymen(employees); 
+    const fetchHandymen = async () => {
+        const employees = await getUsersByRole('employee');
+        setAvailableHandymen(employees);
+    };
+    fetchHandymen();
   }, []);
 
   const form = useForm<TicketFormValues>({
@@ -61,16 +61,25 @@ export function SubmitTicketForm() {
     },
   });
 
-  function onSubmit(data: TicketFormValues) {
-    addTicket({
-      ...data,
-      assignedHandymen: data.assignedHandymen || [], // Ensure it's an array
-    });
-    toast({
-      title: "Ticket Submitted!",
-      description: `Ticket for ${data.clientName} has been successfully created.`,
-    });
-    router.push("/");
+  async function onSubmit(data: TicketFormValues) {
+    try {
+      await addTicket({
+        ...data,
+        assignedHandymen: data.assignedHandymen || [], // Ensure it's an array
+      });
+      toast({
+        title: "Ticket Submitted!",
+        description: `Ticket for ${data.clientName} has been successfully created.`,
+      });
+      router.push("/");
+    } catch (error) {
+       toast({
+        title: "Submission Error",
+        description: "Failed to create the ticket. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Failed to submit ticket:", error);
+    }
   }
 
   return (

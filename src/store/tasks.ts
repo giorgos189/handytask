@@ -1,95 +1,94 @@
 
 import type { Task, TaskStatus } from '@/types';
 import { create } from 'zustand';
-// No direct import of User from '@/auth/auth' needed here for task store logic
+import { db } from '@/lib/firebase';
+import { collection, getDocs, addDoc, doc, updateDoc, getDoc, query, orderBy } from 'firebase/firestore';
 
 interface TaskState {
   tasks: Task[];
-  setTasks: (tasks: Task[]) => void; // For reordering
-  addTicket: (ticket: Omit<Task, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'assignedHandymen'> & { assignedHandymen?: string[] }) => Task;
-  updateTask: (taskId: string, updates: Partial<Task>) => void;
-  updateTaskStatus: (taskId: string, newStatus: TaskStatus) => void; // Added for clarity
-  getTaskById: (taskId: string) => Task | undefined;
-  addTaskComment: (taskId: string, commentText: string) => void; 
+  isLoading: boolean;
+  fetchTasks: () => Promise<void>;
+  setTasks: (tasks: Task[]) => void;
+  addTicket: (ticket: Omit<Task, 'id' | 'status' | 'createdAt' | 'updatedAt'>) => Promise<Task>;
+  updateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
+  updateTaskStatus: (taskId: string, newStatus: TaskStatus) => Promise<void>;
+  getTaskById: (taskId: string) => Promise<Task | undefined>;
 }
 
-let nextId = 4; 
+const tasksCollection = collection(db, 'tasks');
+
+// Helper to convert Firestore doc to Task object
+const docToTask = (doc: any): Task => {
+    const data = doc.data();
+    return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt, // Timestamps can be handled as-is if stored properly
+        updatedAt: data.updatedAt,
+    };
+};
 
 export const useTaskStore = create<TaskState>((set, get) => ({
-  tasks: [
-    {
-      id: 'task-1',
-      clientName: 'Alice Wonderland',
-      address: '123 Rabbit Hole Lane, Wonderland',
-      problemDescription: 'The Mad Hatter\'s clock is stuck at tea time. It chimes constantly and is driving everyone mad. Requires urgent repair. Seems like the mainspring is overwound or a gear is jammed.',
-      contactInfo: 'alice@example.com',
-      status: 'To Do',
-      createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      assignedHandymen: ['employee1@example.com'], 
-    },
-    {
-      id: 'task-2',
-      clientName: 'Humpty Dumpty',
-      address: 'The Great Wall, Nursery Rhyme Land',
-      problemDescription: 'Had a great fall and all the king\'s horses and all the king\'s men couldn\'t put me together again. Need structural assessment and repair of a large crack in the outer shell. Materials might include specialized epoxy and paint.',
-      contactInfo: 'humpty@example.com',
-      status: 'In Progress',
-      createdAt: new Date(Date.now() - 86400000).toISOString(),
-      updatedAt: new Date().toISOString(),
-      assignedHandymen: ['employee2@example.com', 'employee3@example.com'], 
-    },
-    {
-      id: 'task-3',
-      clientName: 'Queen of Hearts',
-      address: 'The Royal Croquet Ground, Wonderland',
-      problemDescription: 'Flamingo croquet mallets are refusing to cooperate. They keep trying to fly away. Need them to be weighted or gently persuaded. Also, the rose bushes need painting red, some white ones appeared overnight. This is a horticultural emergency.',
-      contactInfo: 'queen@example.com',
-      status: 'Completed',
-      createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-      updatedAt: new Date(Date.now() - 86400000).toISOString(),
-      assignedHandymen: ['employee1@example.com'], 
-    },
-  ],
+  tasks: [],
+  isLoading: true,
+  fetchTasks: async () => {
+    set({ isLoading: true });
+    try {
+      const q = query(tasksCollection, orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      const tasks = querySnapshot.docs.map(docToTask);
+      set({ tasks, isLoading: false });
+    } catch (error) {
+      console.error("Error fetching tasks: ", error);
+      set({ isLoading: false });
+    }
+  },
   setTasks: (tasks) => {
     set({ tasks });
   },
-  addTicket: (ticket) => {
-    const newTask: Task = {
+  addTicket: async (ticket) => {
+    const newTicketData = {
       ...ticket,
-      id: `task-${nextId++}`,
-      status: 'To Do',
+      status: 'To Do' as TaskStatus,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      assignedHandymen: ticket.assignedHandymen || [], 
     };
+    const docRef = await addDoc(tasksCollection, newTicketData);
+    const newTask = { id: docRef.id, ...newTicketData };
     set((state) => ({ tasks: [newTask, ...state.tasks] }));
     return newTask;
   },
-  updateTask: (taskId, updates) => {
+  updateTask: async (taskId, updates) => {
+    const taskRef = doc(db, 'tasks', taskId);
+    const updateData = { ...updates, updatedAt: new Date().toISOString() };
+    await updateDoc(taskRef, updateData);
     set((state) => ({
       tasks: state.tasks.map((task) =>
-        task.id === taskId ? { ...task, ...updates, updatedAt: new Date().toISOString() } : task
-      )
-    }));
-  },
-  updateTaskStatus: (taskId, newStatus) => {
-    set((state) => ({
-      tasks: state.tasks.map((task) =>
-        task.id === taskId ? { ...task, status: newStatus, updatedAt: new Date().toISOString() } : task
+        task.id === taskId ? { ...task, ...updateData } : task
       ),
     }));
   },
-  getTaskById: (taskId: string) => {
-    return get().tasks.find(task => task.id === taskId);
+  updateTaskStatus: async (taskId, newStatus) => {
+    await get().updateTask(taskId, { status: newStatus });
   },
-  addTaskComment: (taskId, commentText) => {
-    // This is a mock implementation. In a real app, you'd update the task object.
-    console.log(`Comment for task ${taskId}: ${commentText}`);
-    // Example:
-    // get().updateTask(taskId, { 
-    //   comments: [...(get().getTaskById(taskId)?.comments || []), { text: commentText, date: new Date().toISOString(), author: 'System' }] 
-    // });
-  }
-}));
+  getTaskById: async (taskId: string) => {
+    // First, try to get from the local store cache
+    const localTask = get().tasks.find(task => task.id === taskId);
+    if (localTask) return localTask;
 
+    // If not in cache, fetch from Firestore
+    try {
+        const taskRef = doc(db, 'tasks', taskId);
+        const docSnap = await getDoc(taskRef);
+        if (docSnap.exists()) {
+            return docToTask(docSnap);
+        } else {
+            console.log("No such task document!");
+            return undefined;
+        }
+    } catch (error) {
+        console.error("Error fetching task by ID: ", error);
+        return undefined;
+    }
+  },
+}));

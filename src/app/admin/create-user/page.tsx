@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Loader2 } from 'lucide-react';
 
 const CreateUserPage: React.FC = () => {
   const [name, setName] = useState('');
@@ -21,15 +21,18 @@ const CreateUserPage: React.FC = () => {
   const [address, setAddress] = useState('');
   const [role, setRole] = useState<UserRole>('employee');
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsLoading(true);
 
     if (!name || !surname || !email || !role) {
       setError('Please fill in all required fields (Name, Surname, Email, Role).');
+      setIsLoading(false);
       return;
     }
 
@@ -41,12 +44,8 @@ const CreateUserPage: React.FC = () => {
         email,
         address,
         role,
-        // The password field is not used by the mock `createUser` function.
-        // In a real app, you would handle password creation securely.
       };
-      // In a real app, this would be an async call to your backend
-      // For now, we'll assume createUser is synchronous as per the mock
-      createUser(newUser);
+      await createUser(newUser);
 
       toast({
         title: "User Created",
@@ -71,6 +70,8 @@ const CreateUserPage: React.FC = () => {
         description: "Failed to create user.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -101,6 +102,7 @@ const CreateUserPage: React.FC = () => {
                     onChange={(e) => setName(e.target.value)}
                     required
                     placeholder="Enter first name"
+                    disabled={isLoading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -111,6 +113,7 @@ const CreateUserPage: React.FC = () => {
                     onChange={(e) => setSurname(e.target.value)}
                     required
                     placeholder="Enter last name"
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -124,6 +127,7 @@ const CreateUserPage: React.FC = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   placeholder="user@example.com"
+                  disabled={isLoading}
                 />
               </div>
 
@@ -135,11 +139,12 @@ const CreateUserPage: React.FC = () => {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="e.g., (555) 123-4567"
+                    disabled={isLoading}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
-                  <Select value={role} onValueChange={(value) => setRole(value as UserRole)} required>
+                  <Select value={role} onValueChange={(value) => setRole(value as UserRole)} required disabled={isLoading}>
                     <SelectTrigger id="role">
                       <SelectValue placeholder="Select user role" />
                     </SelectTrigger>
@@ -158,11 +163,16 @@ const CreateUserPage: React.FC = () => {
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="123 Main St, Anytown, USA"
+                  disabled={isLoading}
                 />
               </div>
               
-              <Button type="submit" className="w-full text-lg py-3">
-                Create User
+              <Button type="submit" className="w-full text-lg py-3" disabled={isLoading}>
+                {isLoading ? (
+                  <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Creating...</>
+                ) : (
+                  'Create User'
+                )}
               </Button>
             </form>
           </CardContent>

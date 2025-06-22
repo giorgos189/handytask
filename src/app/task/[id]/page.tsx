@@ -12,12 +12,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TaskStatusBadge } from '@/components/TaskStatusBadge';
 import { AITroubleshooting } from '@/components/AITroubleshooting';
-import { ArrowLeft, CalendarDays, User, MapPin, Phone, Users, ClipboardList, MessageSquare } from 'lucide-react'; // Changed UserCheck to Users
+import { ArrowLeft, CalendarDays, User, MapPin, Phone, Users, ClipboardList, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
-import { getAllUsers, User as AuthUser } from '@/auth/auth'; // To fetch user details for display
+import { getAllUsers, User as AuthUser } from '@/auth/auth';
 
 export default function TaskDetailPage() {
   const params = useParams();
@@ -26,21 +25,28 @@ export default function TaskDetailPage() {
   
   const taskId = typeof params.id === 'string' ? params.id : '';
   
-  const getTaskById = useTaskStore((state) => state.getTaskById);
-  const updateTaskStatusInStore = useTaskStore((state) => state.updateTaskStatus);
+  const { getTaskById, updateTaskStatus } = useTaskStore();
 
   const [task, setTask] = useState<Task | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<TaskStatus | undefined>(undefined);
   const [allUsers, setAllUsers] = useState<AuthUser[]>([]);
 
   useEffect(() => {
-    setAllUsers(getAllUsers()); // Fetch all users to map emails to names
-    if (taskId) {
-      const foundTask = getTaskById(taskId);
+    const fetchTaskAndUsers = async () => {
+      setIsLoading(true);
+      // Fetch users and task in parallel
+      const usersPromise = getAllUsers();
+      const taskPromise = taskId ? getTaskById(taskId) : Promise.resolve(undefined);
+
+      const [users, foundTask] = await Promise.all([usersPromise, taskPromise]);
+      
+      setAllUsers(users);
+
       if (foundTask) {
         setTask(foundTask);
         setSelectedStatus(foundTask.status);
-      } else {
+      } else if(taskId) {
         toast({
           title: "Error",
           description: "Task not found. Redirecting to dashboard.",
@@ -48,13 +54,16 @@ export default function TaskDetailPage() {
         });
         router.push('/');
       }
-    }
+      setIsLoading(false);
+    };
+
+    fetchTaskAndUsers();
   }, [taskId, getTaskById, router, toast]);
 
-  const handleStatusChange = (newStatus: TaskStatus) => {
+  const handleStatusChange = async (newStatus: TaskStatus) => {
     if (task && newStatus) {
       setSelectedStatus(newStatus);
-      updateTaskStatusInStore(task.id, newStatus);
+      await updateTaskStatus(task.id, newStatus);
       setTask(prev => prev ? {...prev, status: newStatus, updatedAt: new Date().toISOString()} : null);
       toast({
         title: "Status Updated",
@@ -85,10 +94,11 @@ export default function TaskDetailPage() {
     );
   };
   
-  if (!task) {
+  if (isLoading || !task) {
     return (
-      <div className="container mx-auto py-8 text-center">
-        <p className="text-xl text-muted-foreground">Loading task details...</p>
+      <div className="container mx-auto py-8 text-center flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2 text-xl text-muted-foreground">Loading task details...</p>
       </div>
     );
   }

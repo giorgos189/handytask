@@ -1,4 +1,7 @@
 
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, addDoc, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+
 export type UserRole = 'admin' | 'employee';
 
 export interface User {
@@ -11,55 +14,58 @@ export interface User {
   role: UserRole;
 }
 
-// Mock user data - replace with actual database interaction
-const mockUsers: User[] = [
-  {
-    id: 'user-1',
-    name: 'Admin',
-    surname: 'User',
-    phone: '123-456-7890',
-    email: 'admin@example.com'.toLowerCase(),
-    address: '123 Admin St',
-    role: 'admin',
-  },
-  {
-    id: 'user-2',
-    name: 'Employee',
-    surname: 'One',
-    phone: '098-765-4321',
-    email: 'employee1@example.com'.toLowerCase(),
-    address: '456 Employee Ave',
-    role: 'employee',
-  },
-  {
-    id: 'user-3',
-    name: 'Handy',
-    surname: 'Andy',
-    phone: '555-000-1111',
-    email: 'employee2@example.com'.toLowerCase(),
-    address: '789 Worker Rd',
-    role: 'employee',
-  },
-  {
-    id: 'user-4',
-    name: 'Test',
-    surname: 'Employee',
-    phone: '555-000-2222',
-    email: 'employee3@example.com'.toLowerCase(),
-    address: '101 Job St',
-    role: 'employee',
-  }
-];
-
-let nextUserId = 5;
 const AUTH_KEY = 'handytask-user';
+const usersCollection = collection(db, 'users');
+
+// Helper to convert Firestore doc to User object
+const docToUser = (doc: any): User => {
+  const data = doc.data();
+  return {
+    id: doc.id,
+    name: data.name,
+    surname: data.surname,
+    phone: data.phone,
+    email: data.email,
+    address: data.address,
+    role: data.role,
+  };
+};
 
 export const login = async (email: string, password: string): Promise<User | null> => {
   const normalizedEmail = email.toLowerCase();
-  const user = mockUsers.find(u => u.email === normalizedEmail);
+  
+  const q = query(usersCollection, where("email", "==", normalizedEmail));
+  const querySnapshot = await getDocs(q);
 
+  if (querySnapshot.empty) {
+    // If no user is found and it's the default admin, create it on first login.
+    if (normalizedEmail === 'admin@example.com') {
+      const adminData = {
+        name: 'Admin',
+        surname: 'User',
+        phone: '123-456-7890',
+        email: normalizedEmail,
+        address: '123 Admin St',
+        role: 'admin' as UserRole,
+      };
+      // Use setDoc with a specific ID to be safe on first run
+      const userRef = doc(db, 'users', 'admin-user-placeholder-id');
+      await setDoc(userRef, adminData);
+      const newUser = { id: userRef.id, ...adminData };
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(AUTH_KEY, JSON.stringify(newUser));
+      }
+      return newUser;
+    }
+    return null;
+  }
+
+  const userDoc = querySnapshot.docs[0];
+  const user = docToUser(userDoc);
+
+  // Mock password check - any password works
   if (user) {
-    // Mock password check - any password works
     if (typeof window !== 'undefined') {
       localStorage.setItem(AUTH_KEY, JSON.stringify(user));
     }
@@ -93,28 +99,25 @@ export const logout = (): void => {
 
 export type CreateUserInput = Omit<User, 'id'>;
 
-export const createUser = (userData: CreateUserInput): User => {
-  const newUser: User = {
-    id: `user-${nextUserId++}`,
-    name: userData.name,
-    surname: userData.surname,
-    phone: userData.phone,
+export const createUser = async (userData: CreateUserInput): Promise<User> => {
+  const userToCreate = {
+    ...userData,
     email: userData.email.toLowerCase(),
-    address: userData.address,
-    role: userData.role,
   };
-  mockUsers.push(newUser);
-  return newUser;
+  const docRef = await addDoc(usersCollection, userToCreate);
+  return {
+    id: docRef.id,
+    ...userToCreate,
+  };
 };
 
-export const updateUserProfile = (
+export const updateUserProfile = async (
   userId: string,
   updates: Partial<Omit<User, 'id' | 'role' | 'email'>>
-): boolean => {
-  const userIndex = mockUsers.findIndex(u => u.id === userId);
-  if (userIndex > -1) {
-    mockUsers[userIndex] = { ...mockUsers[userIndex], ...updates, email: mockUsers[userIndex].email }; // Ensure email is not changed
-
+): Promise<boolean> => {
+  const userRef = doc(db, 'users', userId);
+  try {
+    await updateDoc(userRef, updates);
     const loggedInUser = getCurrentUser();
     if (loggedInUser && loggedInUser.id === userId) {
       const updatedUserInStorage = { ...loggedInUser, ...updates };
@@ -123,8 +126,10 @@ export const updateUserProfile = (
       }
     }
     return true;
+  } catch (error) {
+    console.error("Error updating user profile: ", error);
+    return false;
   }
-  return false;
 };
 
 export const changePassword = async (
@@ -132,18 +137,32 @@ export const changePassword = async (
   currentPassword: string,
   newPassword: string
 ): Promise<boolean> => {
-  const user = mockUsers.find(u => u.id === userId);
-  if (!user) {
-    return false; 
+  // This remains a mock since we are not storing passwords in Firestore.
+  // In a real Firebase Auth scenario, you'd use Firebase's own methods for this.
+  const userDoc = await getDoc(doc(db, 'users', userId));
+  if (!userDoc.exists()) {
+    return false;
   }
-  // Mock password change logic (no actual hashing or storage)
   return true; 
 };
 
-export const getAllUsers = (): User[] => {
-  return [...mockUsers]; // Return a copy
+export const getAllUsers = async (): Promise<User[]> => {
+  try {
+    const querySnapshot = await getDocs(usersCollection);
+    return querySnapshot.docs.map(docToUser);
+  } catch (error) {
+    console.error("Error getting all users: ", error);
+    return [];
+  }
 };
 
-export const getUsersByRole = (role: UserRole): User[] => {
-  return mockUsers.filter(user => user.role === role);
+export const getUsersByRole = async (role: UserRole): Promise<User[]> => {
+  try {
+    const q = query(usersCollection, where("role", "==", role));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(docToUser);
+  } catch (error) {
+    console.error(`Error getting users by role ${role}: `, error);
+    return [];
+  }
 };
