@@ -34,44 +34,50 @@ const docToUser = (doc: any): User => {
 export const login = async (email: string, password: string): Promise<User | null> => {
   const normalizedEmail = email.toLowerCase();
   
-  const q = query(usersCollection, where("email", "==", normalizedEmail));
-  const querySnapshot = await getDocs(q);
+  try {
+    const q = query(usersCollection, where("email", "==", normalizedEmail));
+    const querySnapshot = await getDocs(q);
 
-  if (querySnapshot.empty) {
-    // If no user is found and it's the default admin, create it on first login.
-    if (normalizedEmail === 'admin@example.com') {
-      const adminData = {
-        name: 'Admin',
-        surname: 'User',
-        phone: '123-456-7890',
-        email: normalizedEmail,
-        address: '123 Admin St',
-        role: 'admin' as UserRole,
-      };
-      // Use setDoc with a specific ID to be safe on first run
-      const userRef = doc(db, 'users', 'admin-user-placeholder-id');
-      await setDoc(userRef, adminData);
-      const newUser = { id: userRef.id, ...adminData };
+    if (querySnapshot.empty) {
+      // If no user is found and it's the default admin, create it on first login.
+      if (normalizedEmail === 'admin@example.com') {
+        const adminData = {
+          name: 'Admin',
+          surname: 'User',
+          phone: '123-456-7890',
+          email: normalizedEmail,
+          address: '123 Admin St',
+          role: 'admin' as UserRole,
+        };
+        // Use setDoc with a specific ID to be safe on first run
+        const userRef = doc(db, 'users', 'admin-user-placeholder-id');
+        await setDoc(userRef, adminData);
+        const newUser = { id: userRef.id, ...adminData };
 
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(AUTH_KEY, JSON.stringify(newUser));
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(AUTH_KEY, JSON.stringify(newUser));
+        }
+        return newUser;
       }
-      return newUser;
+      return null;
+    }
+
+    const userDoc = querySnapshot.docs[0];
+    const user = docToUser(userDoc);
+
+    // Mock password check - any password works
+    if (user) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+      }
+      return user;
     }
     return null;
+  } catch (error) {
+    console.error("Firebase login error:", error);
+    console.error("Login failed. This might be due to Firestore security rules. Please ensure your rules allow reads on the 'users' collection. For development, you can use rules that allow all reads and writes.");
+    return null;
   }
-
-  const userDoc = querySnapshot.docs[0];
-  const user = docToUser(userDoc);
-
-  // Mock password check - any password works
-  if (user) {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(AUTH_KEY, JSON.stringify(user));
-    }
-    return user;
-  }
-  return null;
 };
 
 export const getCurrentUser = (): User | null => {
@@ -99,16 +105,21 @@ export const logout = (): void => {
 
 export type CreateUserInput = Omit<User, 'id'>;
 
-export const createUser = async (userData: CreateUserInput): Promise<User> => {
+export const createUser = async (userData: CreateUserInput): Promise<User | null> => {
   const userToCreate = {
     ...userData,
     email: userData.email.toLowerCase(),
   };
-  const docRef = await addDoc(usersCollection, userToCreate);
-  return {
-    id: docRef.id,
-    ...userToCreate,
-  };
+  try {
+    const docRef = await addDoc(usersCollection, userToCreate);
+    return {
+      id: docRef.id,
+      ...userToCreate,
+    };
+  } catch (error) {
+    console.error("Error creating user: ", error);
+    return null;
+  }
 };
 
 export const updateUserProfile = async (
@@ -139,11 +150,16 @@ export const changePassword = async (
 ): Promise<boolean> => {
   // This remains a mock since we are not storing passwords in Firestore.
   // In a real Firebase Auth scenario, you'd use Firebase's own methods for this.
-  const userDoc = await getDoc(doc(db, 'users', userId));
-  if (!userDoc.exists()) {
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    if (!userDoc.exists()) {
+      return false;
+    }
+    return true; 
+  } catch (error) {
+    console.error("Error changing password (mock check): ", error);
     return false;
   }
-  return true; 
 };
 
 export const getAllUsers = async (): Promise<User[]> => {

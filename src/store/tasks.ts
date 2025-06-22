@@ -9,7 +9,7 @@ interface TaskState {
   isLoading: boolean;
   fetchTasks: () => Promise<void>;
   setTasks: (tasks: Task[]) => void;
-  addTicket: (ticket: Omit<Task, 'id' | 'status' | 'createdAt' | 'updatedAt'>) => Promise<Task>;
+  addTicket: (ticket: Omit<Task, 'id' | 'status' | 'createdAt' | 'updatedAt'>) => Promise<Task | null>;
   updateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
   updateTaskStatus: (taskId: string, newStatus: TaskStatus) => Promise<void>;
   getTaskById: (taskId: string) => Promise<Task | undefined>;
@@ -53,20 +53,29 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    const docRef = await addDoc(tasksCollection, newTicketData);
-    const newTask = { id: docRef.id, ...newTicketData };
-    set((state) => ({ tasks: [newTask, ...state.tasks] }));
-    return newTask;
+    try {
+      const docRef = await addDoc(tasksCollection, newTicketData);
+      const newTask = { id: docRef.id, ...newTicketData };
+      set((state) => ({ tasks: [newTask, ...state.tasks] }));
+      return newTask;
+    } catch (error) {
+      console.error("Error adding ticket: ", error);
+      return null;
+    }
   },
   updateTask: async (taskId, updates) => {
     const taskRef = doc(db, 'tasks', taskId);
     const updateData = { ...updates, updatedAt: new Date().toISOString() };
-    await updateDoc(taskRef, updateData);
-    set((state) => ({
-      tasks: state.tasks.map((task) =>
-        task.id === taskId ? { ...task, ...updateData } : task
-      ),
-    }));
+    try {
+      await updateDoc(taskRef, updateData);
+      set((state) => ({
+        tasks: state.tasks.map((task) =>
+          task.id === taskId ? { ...task, ...updateData } : task
+        ),
+      }));
+    } catch (error) {
+      console.error("Error updating task: ", error);
+    }
   },
   updateTaskStatus: async (taskId, newStatus) => {
     await get().updateTask(taskId, { status: newStatus });
@@ -81,7 +90,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         const taskRef = doc(db, 'tasks', taskId);
         const docSnap = await getDoc(taskRef);
         if (docSnap.exists()) {
-            return docToTask(docSnap);
+            return docToTastask(docSnap);
         } else {
             console.log("No such task document!");
             return undefined;
@@ -92,3 +101,14 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     }
   },
 }));
+
+// Helper to convert Firestore doc to Task object, correcting a typo
+const docToTastask = (doc: any): Task => {
+    const data = doc.data();
+    return {
+        id: doc.id,
+        ...data,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+    };
+};
