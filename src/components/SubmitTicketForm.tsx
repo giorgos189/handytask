@@ -28,7 +28,7 @@ import { HandymanMultiSelect } from "./HandymanMultiSelect";
 const ticketFormSchema = z.object({
   clientName: z.string().min(2, "Client name must be at least 2 characters.").max(50),
   address: z.string().min(5, "Address must be at least 5 characters.").max(100),
-  contactInfo: z.string().min(7, "Phone number must be at least 7 digits.").regex(/^[0-9]+$/, "Contact information must only contain numbers."),
+  contactInfo: z.string().min(1, "Phone number cannot be empty.").regex(/^[0-9]+$/, "Contact information must only contain numbers."),
   problemDescription: z.string().max(500, "Problem description cannot exceed 500 characters."),
   assignedHandymen: z.array(z.string().email("Each handyman must be a valid email.")).optional(),
 });
@@ -42,14 +42,18 @@ export function SubmitTicketForm() {
   const [availableHandymen, setAvailableHandymen] = useState<User[]>([]);
 
   useEffect(() => {
-    // Fetch all users when the component mounts
+    // Fetch all users when the component mounts and ensure they are unique.
     const fetchHandymen = async () => {
         try {
             const users = await getAllUsers();
-            // Filter out duplicate users by their ID to prevent rendering issues
-            const uniqueUsers = users.filter((user, index, self) =>
-                index === self.findIndex((u) => u.id === user.id)
-            );
+            // Use a Map to ensure each user is unique by their ID. This is a robust way to prevent duplicates.
+            const uniqueUsersMap = new Map<string, User>();
+            users.forEach(user => {
+              if (user && user.id) { // Ensure user and user.id are not null/undefined
+                uniqueUsersMap.set(user.id, user);
+              }
+            });
+            const uniqueUsers = Array.from(uniqueUsersMap.values());
             setAvailableHandymen(uniqueUsers);
         } catch (error) {
             console.error("Failed to fetch handymen:", error);
@@ -61,7 +65,7 @@ export function SubmitTicketForm() {
         }
     };
     fetchHandymen();
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, []); // The empty dependency array ensures this effect runs only once on mount.
 
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(ticketFormSchema),
