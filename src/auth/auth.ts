@@ -91,7 +91,8 @@ export const login = async (email: string, password: string): Promise<User> => {
     return { id: userDoc.id, ...userDoc.data() } as User;
   } catch (error: any) {
     // If user not found and it's the admin email, create the admin user.
-    if (error.code === 'auth/user-not-found' && normalizedEmail === 'admin@example.com') {
+    // Firebase may return 'auth/invalid-credential' for non-existent users now.
+    if ((error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') && normalizedEmail === 'admin@example.com') {
       console.log('Admin user not found, creating new admin...');
       const adminData = {
         name: 'Admin',

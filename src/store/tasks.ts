@@ -90,7 +90,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
         const taskRef = doc(db, 'tasks', taskId);
         const docSnap = await getDoc(taskRef);
         if (docSnap.exists()) {
-            return docToTastask(docSnap);
+            return docToTask(docSnap);
         } else {
             console.log("No such task document!");
             return undefined;
@@ -101,14 +101,3 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     }
   },
 }));
-
-// Helper to convert Firestore doc to Task object, correcting a typo
-const docToTastask = (doc: any): Task => {
-    const data = doc.data();
-    return {
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
-    };
-};
