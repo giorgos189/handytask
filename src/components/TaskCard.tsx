@@ -5,9 +5,13 @@ import { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { TaskStatusBadge } from './TaskStatusBadge';
-import { User, MapPin, FileText, Users, ExternalLink } from 'lucide-react';
+import { User, MapPin, FileText, Users, ExternalLink, Trash2 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { User as AuthUser } from '@/auth/auth'; // Renamed to prevent conflict
+import { useTaskStore } from '@/store/tasks';
+import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
 
 interface TaskCardProps {
   task: Task;
@@ -16,6 +20,8 @@ interface TaskCardProps {
 
 export function TaskCard({ task, currentUser }: TaskCardProps) {
   const [timeAgo, setTimeAgo] = useState<string | null>(null);
+  const { deleteTask } = useTaskStore();
+  const { toast } = useToast();
 
   useEffect(() => {
     // This effect handles setting the timeAgo string.
@@ -26,6 +32,16 @@ export function TaskCard({ task, currentUser }: TaskCardProps) {
   }, [task?.updatedAt]); 
 
   const canViewDetails = !!currentUser; // Determine if details can be viewed based on the prop
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    await deleteTask(task.id);
+    toast({
+      title: "Task Deleted",
+      description: `Task #${task.id.substring(0, 8)}... has been deleted.`,
+    });
+  };
 
   const viewDetailsButton = (
     <Button asChild variant="default" size="sm" className="bg-primary hover:bg-primary/90" disabled={!canViewDetails}>
@@ -81,8 +97,30 @@ export function TaskCard({ task, currentUser }: TaskCardProps) {
           <p className="text-muted-foreground line-clamp-3">{task.problemDescription}</p>
         </div>
       </CardContent>
-      <CardFooter className="pt-2 pb-4">
+      <CardFooter className="pt-2 pb-4 flex items-center justify-between">
         {viewDetailsButton}
+         {currentUser?.role === 'admin' && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}>
+                <Trash2 className="h-4 w-4" />
+                <span className="sr-only">Delete Task</span>
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the task and remove its data from our servers.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete}>Continue</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </CardFooter>
     </Card>
   );
