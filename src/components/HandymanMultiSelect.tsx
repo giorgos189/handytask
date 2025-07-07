@@ -27,6 +27,7 @@ interface HandymanMultiSelectProps {
   onChange: (selectedEmails: string[]) => void;
   placeholder?: string;
   className?: string;
+  isLoading?: boolean;
 }
 
 export function HandymanMultiSelect({
@@ -35,6 +36,7 @@ export function HandymanMultiSelect({
   onChange,
   placeholder = "Select handymen...",
   className,
+  isLoading = false,
 }: HandymanMultiSelectProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -87,31 +89,37 @@ export function HandymanMultiSelect({
         <Command>
           <CommandInput placeholder="Search handyman..." />
           <CommandList>
-            <CommandEmpty>No handyman found.</CommandEmpty>
-            <CommandGroup>
-              {availableHandymen.map((handyman) => (
-                <CommandItem
-                  key={handyman.id}
-                  value={`${handyman.name} ${handyman.surname} ${handyman.email}`} // Ensure value is unique and searchable
-                  onSelect={() => {
-                    handleSelectToggle(handyman.email);
-                    // Do not close popover to allow multiple selections
-                  }}
-                  className="cursor-pointer"
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      selectedHandymenEmails.includes(handyman.email)
-                        ? "opacity-100"
-                        : "opacity-0"
-                    )}
-                  />
-                  {handyman.name} {handyman.surname} 
-                  <span className="text-xs text-muted-foreground ml-2">({handyman.email})</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
+            {isLoading ? (
+              <div className="p-4 text-sm text-center text-muted-foreground">Loading...</div>
+            ) : (
+              <>
+                <CommandEmpty>No handyman found.</CommandEmpty>
+                <CommandGroup>
+                  {availableHandymen.map((handyman) => (
+                    <CommandItem
+                      key={handyman.id}
+                      value={`${handyman.name} ${handyman.surname} ${handyman.email}`} // Ensure value is unique and searchable
+                      onSelect={() => {
+                        handleSelectToggle(handyman.email);
+                        // Do not close popover to allow multiple selections
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          selectedHandymenEmails.includes(handyman.email)
+                            ? "opacity-100"
+                            : "opacity-0"
+                        )}
+                      />
+                      {handyman.name} {handyman.surname} 
+                      <span className="text-xs text-muted-foreground ml-2">({handyman.email})</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>

@@ -40,29 +40,33 @@ export function SubmitTicketForm() {
   const router = useRouter();
   const { toast } = useToast();
   const [availableHandymen, setAvailableHandymen] = useState<User[]>([]);
+  const [isHandymenLoading, setIsHandymenLoading] = useState(true);
 
   useEffect(() => {
     // Fetch all users when the component mounts and ensure they are unique.
     const fetchHandymen = async () => {
-        try {
-            const users = await getAllUsers();
-            // Use a Map to ensure each user is unique by their ID. This is a robust way to prevent duplicates.
-            const uniqueUsersMap = new Map<string, User>();
-            users.forEach(user => {
-              if (user && user.id) { // Ensure user and user.id are not null/undefined
-                uniqueUsersMap.set(user.id, user);
-              }
-            });
-            const uniqueUsers = Array.from(uniqueUsersMap.values());
-            setAvailableHandymen(uniqueUsers);
-        } catch (error) {
-            console.error("Failed to fetch handymen:", error);
-            toast({
-                title: "Error",
-                description: "Could not load the list of users.",
-                variant: "destructive",
-            });
-        }
+      setIsHandymenLoading(true);
+      try {
+          const users = await getAllUsers();
+          // Use a Map to ensure each user is unique by their ID. This is a robust way to prevent duplicates.
+          const uniqueUsersMap = new Map<string, User>();
+          users.forEach(user => {
+            if (user && user.id) { // Ensure user and user.id are not null/undefined
+              uniqueUsersMap.set(user.id, user);
+            }
+          });
+          const uniqueUsers = Array.from(uniqueUsersMap.values());
+          setAvailableHandymen(uniqueUsers);
+      } catch (error) {
+          console.error("Failed to fetch handymen:", error);
+          toast({
+              title: "Error",
+              description: "Could not load the list of users.",
+              variant: "destructive",
+          });
+      } finally {
+        setIsHandymenLoading(false);
+      }
     };
     fetchHandymen();
   }, []); // The empty dependency array ensures this effect runs only once on mount.
@@ -178,6 +182,7 @@ export function SubmitTicketForm() {
                     selectedHandymenEmails={field.value || []}
                     onChange={field.onChange}
                     placeholder="Select handymen to assign..."
+                    isLoading={isHandymenLoading}
                   />
                   <FormDescription>
                     Select one or more handymen for this task.
