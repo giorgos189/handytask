@@ -1,6 +1,8 @@
 import { db, auth } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import { initializeApp, deleteApp } from 'firebase/app';
 import {
+  getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
@@ -43,18 +45,34 @@ export type CreateUserInput = Omit<User, 'id'>;
 export const createUser = async (userData: CreateUserInput, password: string): Promise<User> => {
   const normalizedEmail = userData.email.toLowerCase();
 
-  // Step 1: Create user in Firebase Authentication
-  const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
-  const authUser = userCredential.user;
-
-  // Step 2: Create user profile in Firestore
-  const newUser: User = {
-    ...userData,
-    id: authUser.uid, // Use UID from Auth as the document ID
-    email: normalizedEmail,
-  };
+  // Create a temporary, secondary Firebase app instance to create the new user.
+  // This prevents the main app's auth state from being updated to the new user.
+  const tempAppName = `temp-user-creation-${Date.now()}`;
   
+  const firebaseConfig = {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  };
+
+  const tempApp = initializeApp(firebaseConfig, tempAppName);
+  const tempAuth = getAuth(tempApp);
+
   try {
+    // Step 1: Create user in Firebase Authentication using the temporary auth instance
+    const userCredential = await createUserWithEmailAndPassword(tempAuth, normalizedEmail, password);
+    const authUser = userCredential.user;
+
+    // Step 2: Create user profile in Firestore
+    const newUser: User = {
+      ...userData,
+      id: authUser.uid, // Use UID from Auth as the document ID
+      email: normalizedEmail,
+    };
+    
     const userDocRef = doc(db, "users", authUser.uid);
     await setDoc(userDocRef, {
         name: newUser.name,
@@ -69,7 +87,11 @@ export const createUser = async (userData: CreateUserInput, password: string): P
     // If Firestore creation fails, we should ideally delete the Firebase Auth user
     // to prevent orphaned auth users.
     console.error("Error creating user profile in Firestore: ", error);
-    throw new Error("Failed to create user profile after authentication.");
+    // Rethrow the original error to be handled by the UI
+    throw error;
+  } finally {
+    // Step 3: Clean up the temporary app instance
+    await deleteApp(tempApp);
   }
 };
 
