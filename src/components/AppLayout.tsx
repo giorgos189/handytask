@@ -20,15 +20,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { getCurrentUser, type User, logout } from '@/auth/auth';
-import { useEffect, useState } from 'react';
+import { logout, type UserRole } from '@/auth/auth';
+import { useAuth } from '@/context/AuthContext';
+
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ElementType;
   tooltip: string;
-  allowedRoles?: User['role'][];
+  allowedRoles?: UserRole[];
 }
 
 const allNavItems: NavItem[] = [
@@ -42,22 +43,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const isMobile = useIsMobile();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    // On component mount or path change, get the user from localStorage
-    setCurrentUser(getCurrentUser());
-  }, [pathname]);
+  const { user } = useAuth();
 
   const visibleNavItems = allNavItems.filter(item => {
-    if (!item.allowedRoles) return true; // public items
-    if (!currentUser) return false; // logged out users can't see role-based items
-    return item.allowedRoles.includes(currentUser.role);
+    if (!item.allowedRoles) return true;
+    if (!user) return false;
+    return item.allowedRoles.includes(user.role);
   });
 
-  const handleLogout = () => {
-    logout();
-    setCurrentUser(null); // Update local state immediately
+  const handleLogout = async () => {
+    await logout();
     router.push('/login');
   };
 
@@ -87,7 +82,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      {currentUser && ( // Check if any user is logged in to show logout
+      {user && ( // Check if any user is logged in to show logout
         <SidebarFooter className="p-2 mt-auto">
           <SidebarMenu>
             <SidebarMenuItem>

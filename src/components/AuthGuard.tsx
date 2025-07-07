@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { getCurrentUser, type UserRole } from '@/auth/auth';
+import { useAuth } from '@/context/AuthContext';
+import type { UserRole } from '@/auth/auth';
+import { Wrench } from 'lucide-react';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -10,54 +12,41 @@ interface AuthGuardProps {
 }
 
 const AuthGuard: React.FC<AuthGuardProps> = ({ children, requiredRole }) => {
+  const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [authStatus, setAuthStatus] = useState<{ isLoading: boolean; isAuthorized: boolean }>({
-    isLoading: true,
-    isAuthorized: false,
-  });
 
-  useEffect(() => {
-    const user = getCurrentUser();
-    let authorized = false;
-    let shouldRedirect = false;
-    const redirectPath = '/login';
+  React.useEffect(() => {
+    if (loading) return; // Wait until auth state is confirmed
 
-    // This AuthGuard is intended for protected routes.
-    // RootLayout logic should prevent this from running on standalone pages like /login.
     if (!user) {
-      shouldRedirect = true;
-    } else if (requiredRole && user.role !== requiredRole) {
-      shouldRedirect = true;
-    } else {
-      authorized = true;
+      // If not logged in, redirect to login page
+      router.push('/login');
+      return;
     }
 
-    if (shouldRedirect) {
-      // Only redirect if not already on the target path to avoid loops.
-      // This is an extra safety, as RootLayout should handle this.
-      if (pathname !== redirectPath) {
-        router.push(redirectPath);
-      }
-      // If redirecting, authorization remains false.
-      setAuthStatus({ isLoading: false, isAuthorized: false });
-    } else {
-      setAuthStatus({ isLoading: false, isAuthorized: authorized });
+    if (requiredRole && user.role !== requiredRole) {
+      // If role is required and doesn't match, redirect to home
+      router.push('/');
     }
+  }, [user, loading, router, requiredRole, pathname]);
 
-  }, [router, requiredRole, pathname]);
-
-  if (authStatus.isLoading) {
-    // Display a loading message or spinner
-    return <div className="flex h-screen w-full items-center justify-center">Loading...</div>;
+  if (loading) {
+    return (
+       <div className="flex h-screen w-full items-center justify-center">
+         <div className="flex items-center gap-2">
+            <Wrench className="h-8 w-8 animate-spin text-primary" />
+            <span className="text-xl font-semibold text-foreground">Loading...</span>
+          </div>
+       </div>
+    );
   }
 
-  if (authStatus.isAuthorized) {
+  if (user && (!requiredRole || user.role === requiredRole)) {
     return <>{children}</>;
   }
 
-  // If not loading and not authorized, a redirect is in progress or has occurred.
-  // Returning null here prevents rendering children, which is correct.
+  // Render nothing while redirecting
   return null;
 };
 

@@ -11,22 +11,19 @@ import { SortableTaskCard } from '@/components/SortableTaskCard';
 import { PlusCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { getCurrentUser, type User as AuthUser } from '@/auth/auth';
-import { usePathname } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import { type User as AuthUser } from '@/auth/auth';
 
 const statusColumns: TaskStatus[] = ['To Do', 'In Progress', 'Completed'];
 
 export default function TaskDashboardPage() {
   const { tasks, isLoading, fetchTasks, updateTaskStatus, setTasks } = useTaskStore();
   const [localTasks, setLocalTasks] = useState<Task[]>([]);
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const pathname = usePathname();
+  const { user: currentUser } = useAuth(); // Get user from AuthContext
 
   useEffect(() => {
     fetchTasks();
-    const user = getCurrentUser();
-    setCurrentUser(user);
-  }, [fetchTasks, pathname]);
+  }, [fetchTasks]);
 
   useEffect(() => {
     setLocalTasks(tasks);

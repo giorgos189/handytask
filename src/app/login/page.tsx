@@ -23,15 +23,26 @@ const LoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const user = await login(email, password);
-      if (user) {
-        router.push('/');
-      } else {
-        setError('Invalid email or password. Please try again.');
+      await login(email, password);
+      router.push('/');
+    } catch (err: any) {
+      let errorMessage = 'An unexpected error occurred during login.';
+      switch (err.code) {
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+          errorMessage = 'Invalid email or password. Please try again.';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'Please enter a valid email address.';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = 'Too many login attempts. Please try again later.';
+          break;
+        default:
+          console.error(err);
       }
-    } catch (err) {
-      setError('An unexpected error occurred during login. Please try again later.');
-      console.error(err);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -90,7 +101,7 @@ const LoginPage: React.FC = () => {
           </form>
         </CardContent>
         <CardFooter className="text-center text-sm text-muted-foreground">
-          <p>On first run, use `admin@example.com` to login.</p>
+          <p>For first run, use `admin@example.com` and any password to login.</p>
         </CardFooter>
       </Card>
     </div>

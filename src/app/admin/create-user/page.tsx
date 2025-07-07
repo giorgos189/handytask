@@ -18,6 +18,7 @@ const CreateUserPage: React.FC = () => {
   const [surname, setSurname] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [address, setAddress] = useState('');
   const [role, setRole] = useState<UserRole>('employee');
   const [error, setError] = useState<string | null>(null);
@@ -30,8 +31,13 @@ const CreateUserPage: React.FC = () => {
     setError(null);
     setIsLoading(true);
 
-    if (!name || !surname || !email || !role) {
-      setError('Please fill in all required fields (Name, Surname, Email, Role).');
+    if (!name || !surname || !email || !password || !role) {
+      setError('Please fill in all required fields.');
+      setIsLoading(false);
+      return;
+    }
+     if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
       setIsLoading(false);
       return;
     }
@@ -45,7 +51,7 @@ const CreateUserPage: React.FC = () => {
         address,
         role,
       };
-      await createUser(newUser);
+      await createUser(newUser, password);
 
       toast({
         title: "User Created",
@@ -57,17 +63,20 @@ const CreateUserPage: React.FC = () => {
       setSurname('');
       setPhone('');
       setEmail('');
+      setPassword('');
       setAddress('');
       setRole('employee');
-      // Optionally redirect or provide further feedback
-      // router.push('/admin/user-management'); // Example redirect
-
-    } catch (err) {
-      setError('Failed to create user. Please check the details and try again.');
+      
+    } catch (err: any) {
+      if (err.code === 'auth/email-already-in-use') {
+        setError('This email address is already in use.');
+      } else {
+        setError('Failed to create user. Please check the details and try again.');
+      }
       console.error(err);
       toast({
         title: "Error",
-        description: "Failed to create user.",
+        description: err.message || "Failed to create user.",
         variant: "destructive",
       });
     } finally {
@@ -118,18 +127,33 @@ const CreateUserPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  type="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  placeholder="user@example.com"
-                  disabled={isLoading}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="space-y-2">
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input
+                    type="email"
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder="user@example.com"
+                    disabled={isLoading}
+                  />
+                </div>
+                 <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    type="password"
+                    id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    placeholder="••••••••"
+                    disabled={isLoading}
+                  />
+                </div>
               </div>
+
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">

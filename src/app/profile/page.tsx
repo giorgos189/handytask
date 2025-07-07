@@ -3,21 +3,20 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { getCurrentUser, updateUserProfile, changePassword, type User } from '@/auth/auth';
+import { updateUserProfile, changePassword } from '@/auth/auth';
 import AuthGuard from '@/components/AuthGuard';
-import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { UserCircle, Lock, Save, ShieldCheck, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 const ProfilePage: React.FC = () => {
-  const router = useRouter();
+  const { user, loading } = useAuth(); // Use auth context
   const { toast } = useToast();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Profile details form state
   const [name, setName] = useState('');
@@ -35,22 +34,18 @@ const ProfilePage: React.FC = () => {
   const [isPasswordSaving, setIsPasswordSaving] = useState(false);
 
   useEffect(() => {
-    const user = getCurrentUser();
     if (user) {
-      setCurrentUser(user);
       setName(user.name);
       setSurname(user.surname);
       setPhone(user.phone || '');
       setAddress(user.address || '');
-    } else {
-      router.push('/login'); // Should be caught by AuthGuard, but good practice
     }
-  }, [router]);
+  }, [user]);
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setProfileError(null);
-    if (!currentUser) return;
+    if (!user) return;
 
     if (!name.trim() || !surname.trim()) {
       setProfileError('Name and Surname cannot be empty.');
@@ -58,15 +53,12 @@ const ProfilePage: React.FC = () => {
     }
     setIsProfileSaving(true);
     try {
-      const success = await updateUserProfile(currentUser.id, { name, surname, phone, address });
+      const success = await updateUserProfile(user.id, { name, surname, phone, address });
       if (success) {
         toast({
           title: "Profile Updated",
-          description: "Your profile information has been successfully updated.",
+          description: "Your profile information has been successfully updated. Changes will be reflected after next login.",
         });
-        const updatedUser = getCurrentUser(); // Re-fetch from localStorage
-        if (updatedUser) setCurrentUser(updatedUser);
-
       } else {
         setProfileError('Failed to update profile. Please try again.');
         toast({
@@ -90,7 +82,7 @@ const ProfilePage: React.FC = () => {
   const handlePasswordChangeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError(null);
-    if (!currentUser) return;
+    if (!user) return;
 
     if (!currentPassword || !newPassword || !confirmPassword) {
       setPasswordError('All password fields are required.');
@@ -100,13 +92,13 @@ const ProfilePage: React.FC = () => {
       setPasswordError('New passwords do not match.');
       return;
     }
-    if (newPassword.length < 6) { // Basic validation
+    if (newPassword.length < 6) {
       setPasswordError('New password must be at least 6 characters long.');
       return;
     }
     setIsPasswordSaving(true);
     try {
-      const success = await changePassword(currentUser.id, currentPassword, newPassword);
+      const success = await changePassword(currentPassword, newPassword);
       if (success) {
         toast({
           title: "Password Changed",
@@ -116,18 +108,18 @@ const ProfilePage: React.FC = () => {
         setNewPassword('');
         setConfirmPassword('');
       } else {
-        setPasswordError('Failed to change password. Please check your current password or try again.');
+        setPasswordError('Failed to change password. This can happen if your current password is incorrect.');
          toast({
           title: "Error",
-          description: "Failed to change password.",
+          description: "Failed to change password. Check your current password.",
           variant: "destructive",
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       setPasswordError('An unexpected error occurred while changing password.');
       toast({
         title: "Error",
-        description: "An unexpected error occurred.",
+        description: err.message || "An unexpected error occurred.",
         variant: "destructive",
       });
     } finally {
@@ -135,7 +127,7 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-  if (!currentUser) {
+  if (loading || !user) {
     return (
       <AuthGuard>
         <div className="flex h-screen w-full items-center justify-center">Loading profile...</div>
@@ -173,7 +165,7 @@ const ProfilePage: React.FC = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email (Read-only)</Label>
-                <Input id="email" type="email" value={currentUser.email} readOnly disabled className="bg-muted/50" />
+                <Input id="email" type="email" value={user.email} readOnly disabled className="bg-muted/50" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -229,14 +221,11 @@ const ProfilePage: React.FC = () => {
                 {isPasswordSaving ? (
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Changing...</>
                 ) : (
-                  <><Save className="mr-2 h-4 w-4" /> Change Password</>
+                  <><Lock className="mr-2 h-4 w-4" /> Change Password</>
                 )}
               </Button>
             </form>
           </CardContent>
-           <CardFooter>
-             <p className="text-xs text-muted-foreground">Note: In a real app, use Firebase Auth for password changes.</p>
-           </CardFooter>
         </Card>
       </div>
     </AuthGuard>

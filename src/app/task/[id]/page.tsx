@@ -7,7 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import type { Task, TaskStatus } from '@/types';
 import { useTaskStore } from '@/store/tasks';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TaskStatusBadge } from '@/components/TaskStatusBadge';
@@ -17,11 +17,13 @@ import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { getAllUsers, User as AuthUser } from '@/auth/auth';
+import { useAuth } from '@/context/AuthContext';
 
 export default function TaskDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
   
   const taskId = typeof params.id === 'string' ? params.id : '';
   
@@ -34,31 +36,42 @@ export default function TaskDetailPage() {
 
   useEffect(() => {
     const fetchTaskAndUsers = async () => {
+      if (!user) return; // Wait for user to be available from context
       setIsLoading(true);
-      // Fetch users and task in parallel
-      const usersPromise = getAllUsers();
-      const taskPromise = taskId ? getTaskById(taskId) : Promise.resolve(undefined);
-
-      const [users, foundTask] = await Promise.all([usersPromise, taskPromise]);
       
-      setAllUsers(users);
+      try {
+        const usersPromise = getAllUsers();
+        const taskPromise = taskId ? getTaskById(taskId) : Promise.resolve(undefined);
 
-      if (foundTask) {
-        setTask(foundTask);
-        setSelectedStatus(foundTask.status);
-      } else if(taskId) {
+        const [users, foundTask] = await Promise.all([usersPromise, taskPromise]);
+        
+        setAllUsers(users);
+
+        if (foundTask) {
+          setTask(foundTask);
+          setSelectedStatus(foundTask.status);
+        } else if(taskId) {
+          toast({
+            title: "Error",
+            description: "Task not found. Redirecting to dashboard.",
+            variant: "destructive",
+          });
+          router.push('/');
+        }
+      } catch (error) {
+         console.error("Error fetching data:", error);
         toast({
           title: "Error",
-          description: "Task not found. Redirecting to dashboard.",
+          description: "Could not load task details.",
           variant: "destructive",
         });
-        router.push('/');
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     fetchTaskAndUsers();
-  }, [taskId, getTaskById, router, toast]);
+  }, [taskId, getTaskById, router, toast, user]);
 
   const handleStatusChange = async (newStatus: TaskStatus) => {
     if (task && newStatus) {

@@ -1,11 +1,19 @@
+import { db, auth } from '@/lib/firebase';
+import { collection, query, where, getDocs, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  updatePassword as fbUpdatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+} from 'firebase/auth';
 
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, addDoc, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 
 export type UserRole = 'admin' | 'employee';
 
 export interface User {
-  id: string;
+  id: string; // This will be the Firebase Auth UID
   name: string;
   surname: string;
   phone: string;
@@ -14,7 +22,6 @@ export interface User {
   role: UserRole;
 }
 
-const AUTH_KEY = 'handytask-user';
 const usersCollection = collection(db, 'users');
 
 // Helper to convert Firestore doc to User object
@@ -31,94 +38,86 @@ const docToUser = (doc: any): User => {
   };
 };
 
-export const login = async (email: string, password: string): Promise<User | null> => {
-  const normalizedEmail = email.toLowerCase();
-  
-  try {
-    const q = query(usersCollection, where("email", "==", normalizedEmail));
-    const querySnapshot = await getDocs(q);
-
-    if (querySnapshot.empty) {
-      // If no user is found and it's the default admin, create it on first login.
-      if (normalizedEmail === 'admin@example.com') {
-        const adminData = {
-          name: 'Admin',
-          surname: 'User',
-          phone: '123-456-7890',
-          email: normalizedEmail,
-          address: '123 Admin St',
-          role: 'admin' as UserRole,
-        };
-        // Use setDoc with a specific ID to be safe on first run
-        const userRef = doc(db, 'users', 'admin-user-placeholder-id');
-        await setDoc(userRef, adminData);
-        const newUser = { id: userRef.id, ...adminData };
-
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(AUTH_KEY, JSON.stringify(newUser));
-        }
-        return newUser;
-      }
-      return null;
-    }
-
-    const userDoc = querySnapshot.docs[0];
-    const user = docToUser(userDoc);
-
-    // Mock password check - any password works
-    if (user) {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(AUTH_KEY, JSON.stringify(user));
-      }
-      return user;
-    }
-    return null;
-  } catch (error) {
-    console.error("Firebase login error:", error);
-    console.error("Login failed. This might be due to Firestore security rules. Please ensure your rules allow reads on the 'users' collection. For development, you can use rules that allow all reads and writes.");
-    return null;
-  }
-};
-
-export const getCurrentUser = (): User | null => {
-  if (typeof window === 'undefined') {
-    return null; // No localStorage on the server
-  }
-  const userJson = localStorage.getItem(AUTH_KEY);
-  if (!userJson) {
-    return null;
-  }
-  try {
-    return JSON.parse(userJson);
-  } catch (e) {
-    console.error("Failed to parse user from localStorage", e);
-    localStorage.removeItem(AUTH_KEY);
-    return null;
-  }
-};
-
-export const logout = (): void => {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem(AUTH_KEY);
-  }
-};
-
 export type CreateUserInput = Omit<User, 'id'>;
 
-export const createUser = async (userData: CreateUserInput): Promise<User | null> => {
-  const userToCreate = {
+export const createUser = async (userData: CreateUserInput, password: string): Promise<User> => {
+  const normalizedEmail = userData.email.toLowerCase();
+
+  // Step 1: Create user in Firebase Authentication
+  const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
+  const authUser = userCredential.user;
+
+  // Step 2: Create user profile in Firestore
+  const newUser: User = {
     ...userData,
-    email: userData.email.toLowerCase(),
+    id: authUser.uid, // Use UID from Auth as the document ID
+    email: normalizedEmail,
   };
+  
   try {
-    const docRef = await addDoc(usersCollection, userToCreate);
-    return {
-      id: docRef.id,
-      ...userToCreate,
-    };
+    const userDocRef = doc(db, "users", authUser.uid);
+    await setDoc(userDocRef, {
+        name: newUser.name,
+        surname: newUser.surname,
+        phone: newUser.phone,
+        email: newUser.email,
+        address: newUser.address,
+        role: newUser.role,
+    });
+    return newUser;
   } catch (error) {
-    console.error("Error creating user: ", error);
-    return null;
+    // If Firestore creation fails, we should ideally delete the Firebase Auth user
+    // to prevent orphaned auth users.
+    console.error("Error creating user profile in Firestore: ", error);
+    throw new Error("Failed to create user profile after authentication.");
+  }
+};
+
+
+export const login = async (email: string, password: string): Promise<User> => {
+  const normalizedEmail = email.toLowerCase();
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, normalizedEmail, password);
+    const user = userCredential.user;
+
+    const userDocRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (!userDoc.exists()) {
+      await signOut(auth);
+      throw new Error("User profile not found in the database.");
+    }
+
+    return { id: userDoc.id, ...userDoc.data() } as User;
+  } catch (error: any) {
+    // If user not found and it's the admin email, create the admin user.
+    if (error.code === 'auth/user-not-found' && normalizedEmail === 'admin@example.com') {
+      console.log('Admin user not found, creating new admin...');
+      const adminData = {
+        name: 'Admin',
+        surname: 'User',
+        phone: '123-456-7890',
+        email: normalizedEmail,
+        address: '123 Admin St',
+        role: 'admin' as UserRole,
+      };
+      const newAdmin = await createUser(adminData, password);
+      // Now login the newly created admin
+      await signInWithEmailAndPassword(auth, normalizedEmail, password);
+      return newAdmin;
+    }
+    console.error("Firebase login error:", error);
+    // Re-throw the original error to be handled by the UI
+    throw error;
+  }
+};
+
+
+export const logout = async (): Promise<void> => {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("Error signing out: ", error);
   }
 };
 
@@ -129,13 +128,6 @@ export const updateUserProfile = async (
   const userRef = doc(db, 'users', userId);
   try {
     await updateDoc(userRef, updates);
-    const loggedInUser = getCurrentUser();
-    if (loggedInUser && loggedInUser.id === userId) {
-      const updatedUserInStorage = { ...loggedInUser, ...updates };
-       if (typeof window !== 'undefined') {
-        localStorage.setItem(AUTH_KEY, JSON.stringify(updatedUserInStorage));
-      }
-    }
     return true;
   } catch (error) {
     console.error("Error updating user profile: ", error);
@@ -144,22 +136,28 @@ export const updateUserProfile = async (
 };
 
 export const changePassword = async (
-  userId: string,
   currentPassword: string,
   newPassword: string
 ): Promise<boolean> => {
-  // This remains a mock since we are not storing passwords in Firestore.
-  // In a real Firebase Auth scenario, you'd use Firebase's own methods for this.
-  try {
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    if (!userDoc.exists()) {
-      return false;
+    const user = auth.currentUser;
+    if (!user || !user.email) {
+        throw new Error("No user is currently signed in or user has no email.");
     }
-    return true; 
-  } catch (error) {
-    console.error("Error changing password (mock check): ", error);
-    return false;
-  }
+    
+    try {
+        // Re-authenticate the user to ensure they are the rightful owner
+        const credential = EmailAuthProvider.credential(user.email, currentPassword);
+        await reauthenticateWithCredential(user, credential);
+
+        // If re-authentication is successful, update the password
+        await fbUpdatePassword(user, newPassword);
+        return true;
+    } catch (error) {
+        console.error("Error changing password: ", error);
+        // We can inspect the error code to give more specific feedback
+        // For example, 'auth/wrong-password'
+        return false;
+    }
 };
 
 export const getAllUsers = async (): Promise<User[]> => {
