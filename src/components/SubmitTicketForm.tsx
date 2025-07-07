@@ -46,7 +46,11 @@ export function SubmitTicketForm() {
     const fetchHandymen = async () => {
         try {
             const users = await getAllUsers();
-            setAvailableHandymen(users);
+            // Filter out duplicate users by their ID to prevent rendering issues
+            const uniqueUsers = users.filter((user, index, self) =>
+                index === self.findIndex((u) => u.id === user.id)
+            );
+            setAvailableHandymen(uniqueUsers);
         } catch (error) {
             console.error("Failed to fetch handymen:", error);
             toast({
@@ -57,7 +61,7 @@ export function SubmitTicketForm() {
         }
     };
     fetchHandymen();
-  }, [toast]);
+  }, []); // Empty dependency array ensures this runs only once on mount
 
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(ticketFormSchema),
