@@ -6,7 +6,7 @@ import { useEffect } from 'react';
 import type { Task, TaskStatus } from '@/types';
 import { useTaskStore } from '@/store/tasks';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableTaskCard } from '@/components/SortableTaskCard';
 import { PlusCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
@@ -27,46 +27,33 @@ export default function TaskDashboardPage() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (!over || active.id === over.id) {
+    if (!over) {
       return;
     }
 
-    const activeTask = tasks.find((task) => task.id === active.id);
-    if (!activeTask) {
-      return;
-    }
+    const activeId = active.id as string;
+    const activeTask = tasks.find((task) => task.id === activeId);
+    if (!activeTask) return;
 
     const sourceStatus = activeTask.status;
-    // The target column is either the container we're dropping into, or the ID of the container itself.
     const targetStatus = (over.data.current?.sortable.containerId || over.id) as TaskStatus;
 
-    if (!statusColumns.includes(targetStatus)) {
+    // Check if it's a valid status column and if the status is actually changing
+    if (!targetStatus || !statusColumns.includes(targetStatus) || sourceStatus === targetStatus) {
+      // Reordering within the same column is not persisted, so we can ignore it to prevent bugs.
       return;
     }
 
-    // Handle status change
-    if (sourceStatus !== targetStatus) {
-      // Optimistically update the UI
-      const optimisticTasks = tasks.map((t) =>
-        t.id === active.id ? { ...t, status: targetStatus } : t
-      );
-      setTasks(optimisticTasks);
+    // Optimistic UI update for status change
+    const optimisticTasks = tasks.map((t) =>
+      t.id === activeId ? { ...t, status: targetStatus } : t
+    );
+    setTasks(optimisticTasks); // Update the store with the new task list
 
-      // Persist the change
-      updateTaskStatus(active.id as string, targetStatus);
-    }
-    // Handle re-ordering within the same column
-    else {
-      const oldIndex = tasks.findIndex((t) => t.id === active.id);
-      const newIndex = tasks.findIndex((t) => t.id === over.id);
-
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const reorderedTasks = arrayMove(tasks, oldIndex, newIndex);
-        setTasks(reorderedTasks);
-        // Note: This reordering is not persisted in the database.
-      }
-    }
+    // Persist the change to the database
+    updateTaskStatus(activeId, targetStatus);
   };
+
 
   if (isLoading) {
     return (
@@ -94,7 +81,7 @@ export default function TaskDashboardPage() {
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {statusColumns.map((status) => (
-            <div key={status} className="bg-muted/50 p-4 rounded-lg shadow">
+            <div key={status} id={status} className="bg-muted/50 p-4 rounded-lg shadow">
               <h2 className="text-xl font-semibold mb-4 text-foreground capitalize">{status}</h2>
               <SortableContext 
                 items={tasks.filter(task => task.status === status).map(t => t.id)} 

@@ -102,12 +102,12 @@ export function TaskCard({ task, currentUser }: TaskCardProps) {
          {currentUser?.role === 'admin' && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}>
+              <Button variant="destructive" size="icon" className="h-8 w-8">
                 <Trash2 className="h-4 w-4" />
                 <span className="sr-only">Delete Task</span>
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}>
+            <AlertDialogContent onClick={(e) => e.stopPropagation() }>
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription>
