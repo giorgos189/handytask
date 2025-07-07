@@ -11,7 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TaskStatusBadge } from '@/components/TaskStatusBadge';
-import { AITroubleshooting } from '@/components/AITroubleshooting';
 import { ArrowLeft, CalendarDays, User, MapPin, Phone, Users, ClipboardList, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -181,10 +180,6 @@ export default function TaskDetailPage() {
             <h3 className="text-xl font-semibold mb-2 flex items-center"><CalendarDays className="mr-2 h-5 w-5 text-primary" />Problem Description</h3>
             <p className="text-muted-foreground whitespace-pre-line bg-secondary/20 p-4 rounded-md shadow-inner text-sm leading-relaxed">{task.problemDescription}</p>
           </div>
-
-          <Separator />
-          
-          <AITroubleshooting task={task} />
           
         </CardContent>
       </Card>
