@@ -10,7 +10,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import type { User as AuthUser } from '@/auth/auth'; // Renamed to prevent conflict
 import { useTaskStore } from '@/store/tasks';
 import { useToast } from '@/hooks/use-toast';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 
 interface TaskCardProps {
