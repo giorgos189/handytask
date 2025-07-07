@@ -101,6 +101,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
     </>
   );
 
+  if (isMobile === undefined) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="flex items-center gap-2">
+          <Wrench className="h-8 w-8 animate-spin text-primary" />
+          <span className="text-xl font-semibold text-foreground">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex min-h-screen w-full">
