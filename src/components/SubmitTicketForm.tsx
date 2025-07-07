@@ -43,33 +43,31 @@ export function SubmitTicketForm() {
   const [isHandymenLoading, setIsHandymenLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch all users when the component mounts and ensure they are unique.
+    // This effect fetches the list of users a single time when the component mounts.
     const fetchHandymen = async () => {
       setIsHandymenLoading(true);
       try {
-          const users = await getAllUsers();
-          // Use a Map to ensure each user is unique by their ID. This is a robust way to prevent duplicates.
-          const uniqueUsersMap = new Map<string, User>();
-          users.forEach(user => {
-            if (user && user.id) { // Ensure user and user.id are not null/undefined
-              uniqueUsersMap.set(user.id, user);
-            }
-          });
-          const uniqueUsers = Array.from(uniqueUsersMap.values());
-          setAvailableHandymen(uniqueUsers);
+        const users = await getAllUsers();
+        
+        // Use a Map, keyed by user.id, to create a unique list of users.
+        // This is a robust way to prevent any duplicate entries from appearing in the dropdown.
+        const uniqueUsers = Array.from(new Map(users.map(user => [user.id, user])).values());
+
+        setAvailableHandymen(uniqueUsers);
       } catch (error) {
-          console.error("Failed to fetch handymen:", error);
-          toast({
-              title: "Error",
-              description: "Could not load the list of users.",
-              variant: "destructive",
-          });
+        console.error("Failed to fetch handymen:", error);
+        toast({
+          title: "Error",
+          description: "Could not load the list of available users.",
+          variant: "destructive",
+        });
       } finally {
         setIsHandymenLoading(false);
       }
     };
+    
     fetchHandymen();
-  }, []); // The empty dependency array ensures this effect runs only once on mount.
+  }, [toast]); // The toast function is a stable dependency.
 
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(ticketFormSchema),
