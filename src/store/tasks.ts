@@ -2,7 +2,7 @@
 import type { Task, TaskStatus } from '@/types';
 import { create } from 'zustand';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, getDoc, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, getDoc, query, orderBy, deleteDoc } from 'firebase/firestore';
 
 interface TaskState {
   tasks: Task[];
@@ -13,6 +13,7 @@ interface TaskState {
   updateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
   updateTaskStatus: (taskId: string, newStatus: TaskStatus) => Promise<void>;
   getTaskById: (taskId: string) => Promise<Task | undefined>;
+  deleteTask: (taskId: string) => Promise<void>;
 }
 
 const tasksCollection = collection(db, 'tasks');
@@ -98,6 +99,17 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     } catch (error) {
         console.error("Error fetching task by ID: ", error);
         return undefined;
+    }
+  },
+  deleteTask: async (taskId: string) => {
+    const taskRef = doc(db, 'tasks', taskId);
+    try {
+      await deleteDoc(taskRef);
+      set((state) => ({
+        tasks: state.tasks.filter((task) => task.id !== taskId),
+      }));
+    } catch (error) {
+      console.error("Error deleting task: ", error);
     }
   },
 }));

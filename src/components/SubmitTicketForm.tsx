@@ -28,7 +28,7 @@ import { HandymanMultiSelect } from "./HandymanMultiSelect";
 const ticketFormSchema = z.object({
   clientName: z.string().min(2, "Client name must be at least 2 characters.").max(50),
   address: z.string().min(5, "Address must be at least 5 characters.").max(100),
-  contactInfo: z.string().min(7, "Phone number must be at least 7 digits.").regex(/^[0-9]+$/, "Contact information must only contain numbers."),
+  contactInfo: z.string().min(1, "Phone number cannot be empty.").regex(/^[0-9]+$/, "Contact information must only contain numbers."),
   problemDescription: z.string().max(500, "Problem description cannot exceed 500 characters."),
   assignedHandymen: z.array(z.string().email("Each handyman must be a valid email.")).optional(),
 });
@@ -40,24 +40,34 @@ export function SubmitTicketForm() {
   const router = useRouter();
   const { toast } = useToast();
   const [availableHandymen, setAvailableHandymen] = useState<User[]>([]);
+  const [isHandymenLoading, setIsHandymenLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch all users when the component mounts
+    // This effect fetches the list of users a single time when the component mounts.
     const fetchHandymen = async () => {
-        try {
-            const users = await getAllUsers();
-            setAvailableHandymen(users);
-        } catch (error) {
-            console.error("Failed to fetch handymen:", error);
-            toast({
-                title: "Error",
-                description: "Could not load the list of users.",
-                variant: "destructive",
-            });
-        }
+      setIsHandymenLoading(true);
+      try {
+        const users = await getAllUsers();
+        
+        // Use a Map, keyed by user.id, to create a unique list of users.
+        // This is a robust way to prevent any duplicate entries from appearing in the dropdown.
+        const uniqueUsers = Array.from(new Map(users.map(user => [user.id, user])).values());
+
+        setAvailableHandymen(uniqueUsers);
+      } catch (error) {
+        console.error("Failed to fetch handymen:", error);
+        toast({
+          title: "Error",
+          description: "Could not load the list of available users.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsHandymenLoading(false);
+      }
     };
+    
     fetchHandymen();
-  }, [toast]);
+  }, [toast]); // The toast function is a stable dependency.
 
   const form = useForm<TicketFormValues>({
     resolver: zodResolver(ticketFormSchema),
@@ -170,6 +180,7 @@ export function SubmitTicketForm() {
                     selectedHandymenEmails={field.value || []}
                     onChange={field.onChange}
                     placeholder="Select handymen to assign..."
+                    isLoading={isHandymenLoading}
                   />
                   <FormDescription>
                     Select one or more handymen for this task.

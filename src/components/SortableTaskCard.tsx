@@ -31,18 +31,16 @@ export function SortableTaskCard({ task, currentUser }: SortableTaskCardProps) {
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="relative">
-      {/* Pass listeners to the TaskCard or a specific drag handle inside it if preferred */}
-      {/* For now, applying to the whole card area except interactive elements */}
-      <div {...attributes} {...listeners} className="cursor-grab">
-        <TaskCard task={task} currentUser={currentUser} />
-      </div>
-      {/* Explicit drag handle - listeners are on the parent for now */}
+    // The main div gets the node ref and dnd-kit attributes
+    <div ref={setNodeRef} style={style} {...attributes} className="relative">
+      {/* The task card itself is just for display */}
+      <TaskCard task={task} currentUser={currentUser} />
+      
+      {/* The button is the dedicated drag handle, which gets the listeners */}
       <button
+        {...listeners}
         className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary rounded cursor-grab"
         aria-label="Drag task"
-        {...attributes} // Apply DND attributes and listeners also to the handle
-        {...listeners}
       >
         <GripVertical size={20} />
       </button>

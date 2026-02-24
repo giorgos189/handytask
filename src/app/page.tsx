@@ -2,11 +2,11 @@
 // src/app/page.tsx - Task Dashboard
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import type { Task, TaskStatus } from '@/types';
 import { useTaskStore } from '@/store/tasks';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableTaskCard } from '@/components/SortableTaskCard';
 import { PlusCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
@@ -18,43 +18,42 @@ const statusColumns: TaskStatus[] = ['To Do', 'In Progress', 'Completed'];
 
 export default function TaskDashboardPage() {
   const { tasks, isLoading, fetchTasks, updateTaskStatus, setTasks } = useTaskStore();
-  const [localTasks, setLocalTasks] = useState<Task[]>([]);
   const { user: currentUser } = useAuth(); // Get user from AuthContext
 
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
 
-  useEffect(() => {
-    setLocalTasks(tasks);
-  }, [tasks]);
-
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (active.id !== over?.id && over) {
-      setLocalTasks((prevTasks) => {
-        const oldIndex = prevTasks.findIndex((task) => task.id === active.id);
-        const newIndex = prevTasks.findIndex((task) => task.id === over.id);
-
-        if (oldIndex === -1 || newIndex === -1) return prevTasks;
-
-        let newTasksArray = arrayMove(prevTasks, oldIndex, newIndex);
-        
-        const activeTask = newTasksArray.find(task => task.id === active.id);
-        const overColumnId = over.data?.current?.sortable?.containerId as TaskStatus | undefined;
-
-        if (activeTask && overColumnId && statusColumns.includes(overColumnId) && activeTask.status !== overColumnId) {
-          const updatedTask = { ...activeTask, status: overColumnId };
-          newTasksArray = newTasksArray.map(task => task.id === active.id ? updatedTask : task);
-          updateTaskStatus(active.id as string, overColumnId);
-        }
-        
-        setTasks(newTasksArray);
-        return newTasksArray;
-      });
+    if (!over) {
+      return;
     }
+
+    const activeId = active.id as string;
+    const activeTask = tasks.find((task) => task.id === activeId);
+    if (!activeTask) return;
+
+    const sourceStatus = activeTask.status;
+    const targetStatus = (over.data.current?.sortable.containerId || over.id) as TaskStatus;
+
+    // Check if it's a valid status column and if the status is actually changing
+    if (!targetStatus || !statusColumns.includes(targetStatus) || sourceStatus === targetStatus) {
+      // Reordering within the same column is not persisted, so we can ignore it to prevent bugs.
+      return;
+    }
+
+    // Optimistic UI update for status change
+    const optimisticTasks = tasks.map((t) =>
+      t.id === activeId ? { ...t, status: targetStatus } : t
+    );
+    setTasks(optimisticTasks); // Update the store with the new task list
+
+    // Persist the change to the database
+    updateTaskStatus(activeId, targetStatus);
   };
+
 
   if (isLoading) {
     return (
@@ -82,20 +81,20 @@ export default function TaskDashboardPage() {
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {statusColumns.map((status) => (
-            <div key={status} className="bg-muted/50 p-4 rounded-lg shadow">
+            <div key={status} id={status} className="bg-muted/50 p-4 rounded-lg shadow">
               <h2 className="text-xl font-semibold mb-4 text-foreground capitalize">{status}</h2>
               <SortableContext 
-                items={localTasks.filter(task => task.status === status).map(t => t.id)} 
+                items={tasks.filter(task => task.status === status).map(t => t.id)} 
                 strategy={verticalListSortingStrategy}
                 id={status}
               >
                 <div className="space-y-4 min-h-[200px]">
-                  {localTasks
+                  {tasks
                     .filter((task) => task.status === status)
                     .map((task) => (
                        <SortableTaskCard key={task.id} task={task} currentUser={currentUser} />
                     ))}
-                  {localTasks.filter((task) => task.status === status).length === 0 && (
+                  {tasks.filter((task) => task.status === status).length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">No tasks in this stage.</p>
                   )}
                 </div>

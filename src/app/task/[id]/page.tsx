@@ -11,12 +11,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TaskStatusBadge } from '@/components/TaskStatusBadge';
-import { ArrowLeft, CalendarDays, User, MapPin, Phone, Users, ClipboardList, Loader2 } from 'lucide-react';
+import { ArrowLeft, CalendarDays, User, MapPin, Phone, Users, ClipboardList, Loader2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { getAllUsers, User as AuthUser } from '@/auth/auth';
 import { useAuth } from '@/context/AuthContext';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
 
 export default function TaskDetailPage() {
   const params = useParams();
@@ -26,7 +28,7 @@ export default function TaskDetailPage() {
   
   const taskId = typeof params.id === 'string' ? params.id : '';
   
-  const { getTaskById, updateTaskStatus } = useTaskStore();
+  const { getTaskById, updateTaskStatus, deleteTask } = useTaskStore();
 
   const [task, setTask] = useState<Task | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,6 +86,16 @@ export default function TaskDetailPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!task) return;
+    await deleteTask(task.id);
+    toast({
+      title: "Task Deleted",
+      description: "The task has been permanently deleted.",
+    });
+    router.push('/');
+  };
+
   const getHandymanDetails = (email: string): AuthUser | undefined => {
     return allUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
   };
@@ -117,9 +129,35 @@ export default function TaskDetailPage() {
 
   return (
     <div className="container mx-auto py-8 space-y-8">
-      <Button variant="outline" onClick={() => router.back()} className="mb-2">
-        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-      </Button>
+      <div className="flex justify-between items-center mb-2">
+        <Button variant="outline" onClick={() => router.back()}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+        </Button>
+
+        {user?.role === 'admin' && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Task
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the task from the database.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+      </div>
+
 
       <Card className="shadow-xl">
         <CardHeader>
