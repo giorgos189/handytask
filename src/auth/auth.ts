@@ -1,5 +1,5 @@
 import { db, auth } from '@/lib/firebase';
-import { collection, query, where, getDocs, doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { initializeApp, deleteApp } from 'firebase/app';
 import {
   getAuth,
@@ -201,5 +201,34 @@ export const getUsersByRole = async (role: UserRole): Promise<User[]> => {
   } catch (error) {
     console.error(`Error getting users by role ${role}: `, error);
     return [];
+  }
+};
+
+// Admin: update any Firestore field on a user (including role), excluding id and email.
+export const adminUpdateUser = async (
+  userId: string,
+  updates: Partial<Omit<User, 'id' | 'email'>>
+): Promise<boolean> => {
+  const userRef = doc(db, 'users', userId);
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await updateDoc(userRef, updates as any);
+    return true;
+  } catch (error) {
+    console.error('Error in adminUpdateUser: ', error);
+    return false;
+  }
+};
+
+// Admin (Firestore-only): delete a user's profile document.
+// When Firebase Admin SDK is configured, prefer calling the API route which also
+// removes the Firebase Auth account. This function is used as a fallback.
+export const deleteUserFromFirestore = async (userId: string): Promise<boolean> => {
+  try {
+    await deleteDoc(doc(db, 'users', userId));
+    return true;
+  } catch (error) {
+    console.error('Error deleting user from Firestore: ', error);
+    return false;
   }
 };

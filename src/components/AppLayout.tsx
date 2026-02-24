@@ -5,7 +5,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, PlusSquare, Wrench, Menu, Users, LogOut, UserCircle } from 'lucide-react'; // Added UserCircle
+import { LayoutDashboard, PlusSquare, Wrench, Menu, Users, LogOut, UserCircle, UserCog } from 'lucide-react';
 import {
   SidebarProvider,
   Sidebar,
@@ -37,6 +37,7 @@ const allNavItems: NavItem[] = [
   { href: '/profile', label: 'Profile', icon: UserCircle, tooltip: 'Edit Profile', allowedRoles: ['admin', 'employee'] },
   { href: '/submit-ticket', label: 'Submit Ticket', icon: PlusSquare, tooltip: 'Submit New Ticket', allowedRoles: ['admin'] },
   { href: '/admin/create-user', label: 'Create User', icon: Users, tooltip: 'Create New User', allowedRoles: ['admin'] },
+  { href: '/admin/manage-users', label: 'Manage Users', icon: UserCog, tooltip: 'Manage Existing Users', allowedRoles: ['admin'] },
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
